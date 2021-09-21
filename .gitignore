@@ -1,0 +1,20 @@
+# Class and data files
+*.class
+*.csv
+*.txt
+
+# Compressed files
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Build & IDE
+.idea/
+data
+lib
+
+build/
+.gradle/

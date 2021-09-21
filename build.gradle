@@ -1,0 +1,48 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
+}
+
+group 'cs4224'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+wrapper {
+    gradleVersion = '7.2'
+}
+
+dependencies {
+
+    implementation (
+            'com.datastax.oss:java-driver-core:4.13.0',
+            'com.datastax.oss:java-driver-query-builder:4.13.0',
+            'com.datastax.oss:java-driver-mapper-runtime:4.13.0'
+    )
+    testImplementation(
+            'org.junit.jupiter:junit-jupiter-api:5.5.2'
+    )
+    testRuntimeOnly(
+            'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+    )
+}
+
+shadowJar {
+    mergeServiceFiles()
+    zip64 true
+    manifest {
+        attributes(
+                'Main-Class': 'cs4224.Main',
+                'version': project.version
+        )
+    }
+}
+
+test {
+    useJUnitPlatform()
+    beforeTest { descriptor ->
+        logger.lifecycle('Running test: ' + descriptor)
+    }
+}
