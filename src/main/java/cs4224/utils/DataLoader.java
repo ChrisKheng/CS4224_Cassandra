@@ -2,6 +2,7 @@ package cs4224.utils;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 
 import java.io.*;
@@ -18,17 +19,27 @@ public class DataLoader implements Closeable {
                 .build();
 
 
-        File file = new File("data/temp");
-        if (!file.exists()) {
-            file.mkdirs();
-        }
+//        File file = new File("data/temp");
+//        if (!file.exists()) {
+//            file.mkdirs();
+//        }
     }
 
     public void loadData() {
+        ResultSet res = session.execute("SELECT * FROM order_line LIMIT 50 ");
+        res.all()
+                .forEach(x ->
+                        System.out.println(
+                                x.getInt(0)));
     }
 
     public void loadSchema() throws Exception {
-        executeCommand("cqlsh -f main\\queries\\create_table.cql --request-timeout=3600");
+
+//
+        System.out.println("Exec");
+//        executeCommand("bash -c cqlsh -f main/queries/create_table.cql --request-timeout=120");
+//        System.out.println("Fin");
+        executeCommand("bash -c cqlsh -f main/queries/test.cql --request-timeout=120");
     }
     private void executeCommand(String command) throws Exception {
         Runtime rt = Runtime.getRuntime();
@@ -41,17 +52,17 @@ public class DataLoader implements Closeable {
         while ((line = inReader.readLine()) != null) {
             System.out.println(line);
         }
-
         while ((line = errReader.readLine()) != null) {
             System.out.println(line);
         }
         proc.waitFor();
-
         inReader.close();
         errReader.close();
     }
     @Override
     public void close() throws IOException {
-
+        if (session != null) {
+            session.close();
+        }
     }
 }

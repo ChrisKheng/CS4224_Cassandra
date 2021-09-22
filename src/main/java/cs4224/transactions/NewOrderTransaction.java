@@ -23,6 +23,9 @@ public class NewOrderTransaction extends BaseTransaction {
 
     @Override
     public void execute(String[] dataLines) {
-
+        System.out.printf("Running New Order Transaction with C_ID= %d, W_ID=%d, D_ID=%d, N=%d \n", customerId, warehouseId, districtId, noOfItems);
+        for (String line : dataLines) {
+            System.out.println(line);
+        }
     }
 }

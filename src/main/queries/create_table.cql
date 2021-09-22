@@ -60,8 +60,9 @@ CREATE TABLE customer (
 	PRIMARY KEY (C_W_ID, C_D_ID, C_ID)
 );
 
-DROP TABLE IF EXISTS order;
-CREATE TABLE order (
+-- Note the s
+DROP TABLE IF EXISTS orders;
+CREATE TABLE orders (
 	O_W_ID int,
 	O_D_ID int,
 	O_ID int,

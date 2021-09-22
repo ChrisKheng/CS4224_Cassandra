@@ -16,6 +16,7 @@ import cs4224.transactions.RelatedCustomerTransaction;
 import cs4224.transactions.StockLevelTransaction;
 import cs4224.transactions.TopBalanceTransaction;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -41,14 +42,14 @@ public class Main {
                 case "setupdb":
                     System.out.println("[Setup Database]");
                     try (DataLoader loader = new DataLoader()) {
-                        loader.loadSchema();
+                        //loader.loadSchema();
                         System.out.println("====Create Tables ");
                         loader.loadData();
                         System.out.println("====Inject Data");
                     }
                     break;
 
-                case "runqueries":
+                case "run_queries":
                     System.out.println("[Running queries]");
                     runQueries(args);
                     break;
@@ -64,7 +65,10 @@ public class Main {
         CqlSession session = CqlSession.builder().
                 withKeyspace(CqlIdentifier.fromCql("wholesale")).
                 build();
-        Scanner scanner = new Scanner(System.in);
+
+        File queryTxt = new File(args[1]);
+
+        Scanner scanner = new Scanner(queryTxt);
         BaseTransaction transaction;
 
         // TODO: Record the timings and pass to Statistics.
@@ -74,6 +78,7 @@ public class Main {
 
         start = System.nanoTime();
         while (scanner.hasNext()) {
+
             String line = scanner.nextLine();
             String[] parameters = line.split(",");
             switch (parameters[0]) {
@@ -120,5 +125,6 @@ public class Main {
             System.out.printf("Time taken: %d\n", lapse);
             System.out.println("======================================================================");
         }
+        session.close();
     }
 }
