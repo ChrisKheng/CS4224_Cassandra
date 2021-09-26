@@ -1,7 +1,7 @@
 -- Creates the keyspace.
-DROP KEYSPACE IF EXISTS wholesale;
-CREATE KEYSPACE IF NOT EXISTS wholesale WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};
-USE wholesale;
+DROP KEYSPACE IF EXISTS wholesale_dev_a;
+CREATE KEYSPACE IF NOT EXISTS wholesale_dev_a WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};
+USE wholesale_dev_a;
 
 -- Creates the tables.
 DROP TABLE IF EXISTS warehouse;
@@ -31,7 +31,7 @@ CREATE TABLE district (
 	D_TAX decimal,
 	D_YTD decimal,
 	D_NEXT_O_ID int,
-	PRIMARY KEY (D_W_ID, D_ID)
+	PRIMARY KEY ((D_W_ID, D_ID))
 );
 
 DROP TABLE IF EXISTS customer;
@@ -57,7 +57,7 @@ CREATE TABLE customer (
 	C_PAYMENT_CNT int,
 	C_DELIVERY_CNT int,
 	C_DATA text,
-	PRIMARY KEY (C_W_ID, C_D_ID, C_ID)
+	PRIMARY KEY ((C_W_ID, C_D_ID), C_ID)
 );
 
 -- Note the s
@@ -71,8 +71,8 @@ CREATE TABLE orders (
 	O_OL_CNT decimal,
 	O_ALL_LOCAL decimal,
 	O_ENTRY_D timestamp,
-	PRIMARY KEY (O_W_ID, O_D_ID, O_ID)
-);
+	PRIMARY KEY ((O_W_ID, O_D_ID), O_ID))
+WITH CLUSTERING ORDER BY (O_ID DESC);
 
 DROP TABLE IF EXISTS item;
 CREATE TABLE item (
@@ -96,7 +96,7 @@ CREATE TABLE order_line (
 	OL_SUPPLY_W_ID int,
 	OL_QUANTITY decimal,
 	OL_DIST_INFO text,
-	PRIMARY KEY (OL_W_ID, OL_D_ID, OL_O_ID, OL_NUMBER)
+	PRIMARY KEY ((OL_W_ID, OL_D_ID), OL_O_ID, OL_NUMBER)
 );
 
 DROP TABLE IF EXISTS stock;
@@ -118,6 +118,37 @@ CREATE TABLE stock (
 	S_DIST_09 text,
 	S_DIST_10 text,
 	S_DATA text,
-	PRIMARY KEY (S_W_ID, S_I_ID)
+	PRIMARY KEY ((S_W_ID, S_I_ID))
 );
 
+DROP TABLE IF EXISTS order_by_customer;
+CREATE TABLE order_by_customer (
+    O_W_ID int,
+    O_D_ID int,
+    O_C_ID int,
+    O_ENTRY_D timestamp,
+    O_ID int,
+    PRIMARY KEY ((O_W_ID, O_D_ID, O_C_ID), O_ENTRY_D))
+WITH CLUSTERING ORDER BY (O_ENTRY_D DESC);
+
+DROP TABLE IF EXISTS order_by_item;
+CREATE TABLE order_by_item (
+    I_ID int,
+    O_W_ID int,
+    O_D_ID int,
+    O_ID int,
+    PRIMARY KEY (I_ID)
+);
+
+// Note that MATERIALIZED VIEW is still experimental in Cassandra 4.0
+DROP MATERIALIZED VIEW IF EXISTS customer_balance;
+CREATE MATERIALIZED VIEW customer_balance
+AS SELECT C_W_ID, C_D_ID, C_ID, C_BALANCE
+FROM customer
+WHERE C_W_ID IS NOT NULL AND C_D_ID IS NOT NULL AND C_ID IS NOT NULL AND C_BALANCE IS NOT NULL
+PRIMARY KEY ((C_W_ID, C_D_ID, C_ID), C_BALANCE)
+WITH CLUSTERING ORDER BY (C_BALANCE DESC);
+
+/*
+Tables have not created: order_by_district
+*/
