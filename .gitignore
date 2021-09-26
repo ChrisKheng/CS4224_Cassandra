@@ -18,3 +18,5 @@ lib
 
 build/
 .gradle/
+
+.DS_Store
