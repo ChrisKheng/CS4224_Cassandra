@@ -20,16 +20,17 @@ dependencies {
             'ch.qos.logback:logback-classic:1.2.3',
             'org.apache.logging.log4j:log4j-api:2.14.1',
             'org.apache.logging.log4j:log4j-core:2.14.1',
+            'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1',
             'com.datastax.oss:java-driver-core:4.13.0',
             'com.datastax.oss:java-driver-query-builder:4.13.0',
             'com.datastax.oss:java-driver-mapper-runtime:4.13.0'
     )
 
     testImplementation(
-            'org.junit.jupiter:junit-jupiter-api:5.5.2'
+            'org.junit.jupiter:junit-jupiter-api:5.8.0'
     )
     testRuntimeOnly(
-            'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+            'org.junit.jupiter:junit-jupiter-engine:5.8.0'
     )
 }
 
@@ -39,7 +40,8 @@ shadowJar {
     manifest {
         attributes(
                 'Main-Class': 'cs4224.Main',
-                'version': project.version
+                'version': project.version,
+                'Class-Path': '/Users/yaudongkheng/Projects/cs4224/CS4224_Cassandra/src'
         )
     }
 }
