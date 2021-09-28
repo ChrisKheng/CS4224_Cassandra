@@ -14,22 +14,30 @@ wrapper {
     gradleVersion = '7.2'
 }
 
+apply plugin: 'java'
+compileJava {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
 dependencies {
 
     implementation (
             'ch.qos.logback:logback-classic:1.2.3',
             'org.apache.logging.log4j:log4j-api:2.14.1',
             'org.apache.logging.log4j:log4j-core:2.14.1',
+            'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1',
             'com.datastax.oss:java-driver-core:4.13.0',
             'com.datastax.oss:java-driver-query-builder:4.13.0',
-            'com.datastax.oss:java-driver-mapper-runtime:4.13.0'
+            'com.datastax.oss:java-driver-mapper-runtime:4.13.0',
+            'commons-cli:commons-cli:1.4'
     )
 
     testImplementation(
-            'org.junit.jupiter:junit-jupiter-api:5.5.2'
+            'org.junit.jupiter:junit-jupiter-api:5.8.0'
     )
     testRuntimeOnly(
-            'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+            'org.junit.jupiter:junit-jupiter-engine:5.8.0'
     )
 }
 

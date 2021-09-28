@@ -1,6 +1,5 @@
 # Class and data files
 *.class
-*.csv
 *.txt
 
 # Compressed files
@@ -18,3 +17,5 @@ lib
 
 build/
 .gradle/
+
+.DS_Store
