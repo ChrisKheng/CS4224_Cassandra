@@ -47,8 +47,7 @@ shadowJar {
     manifest {
         attributes(
                 'Main-Class': 'cs4224.Main',
-                'version': project.version,
-                'Class-Path': '/Users/yaudongkheng/Projects/cs4224/CS4224_Cassandra/src'
+                'version': project.version
         )
     }
 }
