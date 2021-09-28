@@ -3,6 +3,8 @@ package cs4224.transactions;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import cs4224.entities.Customer;
+import cs4224.entities.Order;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -11,66 +13,6 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     private final int customerWarehouseId;
     private final int customerDistrictId;
     private final int customerId;
-
-    protected static class Order {
-        protected final int orderWarehouseId;
-        protected final int orderDistrictId;
-        protected final int orderId;
-
-        public Order(int orderWarehouseId, int orderDistrictId, int orderId) {
-            this.orderWarehouseId = orderWarehouseId;
-            this.orderDistrictId = orderDistrictId;
-            this.orderId = orderId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Order order = (Order) o;
-            return orderWarehouseId == order.orderWarehouseId && orderDistrictId == order.orderDistrictId && orderId == order.orderId;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(orderWarehouseId, orderDistrictId, orderId);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(%d, %d, %d)", orderWarehouseId, orderDistrictId, orderId);
-        }
-    }
-
-    protected static class Customer {
-        protected final int customerWarehouseId;
-        protected final int customerDistrictId;
-        protected final int customerId;
-
-        public Customer(int customerWarehouseId, int customerDistrictId, int customerId) {
-            this.customerWarehouseId = customerWarehouseId;
-            this.customerDistrictId = customerDistrictId;
-            this.customerId = customerId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Customer customer = (Customer) o;
-            return customerWarehouseId == customer.customerWarehouseId && customerDistrictId == customer.customerDistrictId && customerId == customer.customerId;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(customerWarehouseId, customerDistrictId, customerId);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(%d, %d, %d)", customerWarehouseId, customerDistrictId, customerId);
-        }
-    }
 
     public RelatedCustomerTransaction(CqlSession session, String[] parameters) {
         super(session, parameters);
@@ -138,7 +80,12 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     for (Row potentialOrderItemRow : potentialOrderItems) {
                         int potentialOrderItemId = potentialOrderItemRow.getInt("OL_I_ID");
                         if (potentialOrderItemId != itemId && itemIdsSet.contains(potentialOrderItemId)) {
-                            relatedOrders.add(new Order(potentialOrderWid, potentialOrderDid, potentialOrderId));
+                            relatedOrders.add(
+                                    Order.builder()
+                                    .id(potentialOrderId)
+                                    .warehouseId(potentialOrderWid)
+                                    .districtId(potentialOrderDid)
+                                    .build());
                             break;
                         }
                     }
@@ -164,12 +111,15 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     "SELECT O_C_ID "
                     + "FROM orders "
                     + "WHERE O_W_ID = %d AND O_D_ID = %d AND O_ID = %d"
-            , order.orderWarehouseId, order.orderDistrictId, order.orderId);
+            , order.getWarehouseId(), order.getDistrictId(), order.getId());
             System.out.println(query);
 
             ResultSet customerIdRow = session.execute(query);
-            customers.add(new Customer(order.orderWarehouseId, order.orderDistrictId,
-                    customerIdRow.one().getInt("O_C_ID")));
+            customers.add(Customer.builder()
+                    .id(customerIdRow.one().getInt("O_C_ID"))
+                    .warehouseId(order.getWarehouseId())
+                    .districtId(order.getDistrictId())
+                    .build());
         }
 
         return customers;
