@@ -11,7 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class RelatedCustomerTransactionTest {
     @BeforeAll
     public static void setup() {
-        Utils.executeBashCommand("cqlsh -f src/test/resources/data/related_customer_transaction/load_data.cql");
+        Utils.executeBashCommand("cqlsh -f src/test/resources/test_data/related_customer_transaction/load_data.cql");
     }
 
     @Test
