@@ -85,7 +85,7 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         String query1 = String.format(
                 "Select O_ID "
                         + "FROM order_by_customer "
-                        + "WHERE O_W_ID = %d AND O_D_ID = %d AND O_C_ID = %d"
+                        + "WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d"
                 , customerWarehouseId, customerDistrictId, customerId);
         ResultSet orderIds = session.execute(query1);
         HashSet<Order> relatedOrders = new HashSet<>();
@@ -149,6 +149,11 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         HashSet<Customer> relatedCustomers = getCustomersOfOrders(relatedOrders);
         System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
         relatedCustomers.forEach(System.out::println);
+    }
+
+    private HashSet<Order> getRelatedOrders(Order order) {
+        HashSet<Order> relatedOrders = new HashSet<>();
+        return relatedOrders;
     }
 
     private HashSet<Customer> getCustomersOfOrders(HashSet<Order> orders) {
