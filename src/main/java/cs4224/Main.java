@@ -3,6 +3,8 @@ package cs4224;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.session.SessionBuilder;
 import cs4224.utils.DataLoader;
 import cs4224.utils.Statistics;
 
@@ -15,20 +17,24 @@ import cs4224.transactions.PopularItemTransaction;
 import cs4224.transactions.RelatedCustomerTransaction;
 import cs4224.transactions.StockLevelTransaction;
 import cs4224.transactions.TopBalanceTransaction;
+import jnr.ffi.annotations.In;
+import org.apache.commons.cli.CommandLine;
 
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
+    public static long numQueries = 0;
+    private static int CASSANDRA_PORT = 9042;
 
     public static void main(String[] args) {
-	    // write your code here
         System.out.println("[START OF PROGRAM]");
         try {
             run(args);
-
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -36,37 +42,40 @@ public class Main {
         System.out.println("[END OF PROGRAM]");
     }
 
-    public static void run(String[] args) throws Exception {
-        if (args.length != 0) {
-            switch (args[0].toLowerCase()) {
-                case "setupdb":
-                    System.out.println("[Setup Database]");
-                    try (DataLoader loader = new DataLoader()) {
-                        //loader.loadSchema();
-                        System.out.println("====Create Tables ");
-                        loader.loadData();
-                        System.out.println("====Inject Data");
-                    }
-                    break;
+    private static void run(String[] args) throws Exception {
+        InputParser parser = new InputParser();
+        CommandLine parsedArguments = parser.parse(args);
 
-                case "run_queries":
-                    System.out.println("[Running queries]");
-                    runQueries(args);
-                    break;
+        if (parsedArguments == null) {
+            throw new IllegalArgumentException("Incorrect arguments");
+        }
 
-                default:
-                    throw new Exception("Invalid command.");
-            }
+        String keyspace = parsedArguments.getOptionValue("k");
+        String ip = parsedArguments.hasOption("i") ? parsedArguments.getOptionValue("i") : "";
+        int port = parsedArguments.hasOption("p") ? Integer.parseInt(parsedArguments.getOptionValue("p")) : -1;
+        CqlSession session = getCassandraSession(keyspace, ip, port);
+
+        String fileName = parsedArguments.getOptionValue("f");
+
+        runQueries(session, fileName);
+    }
+
+    private static CqlSession getCassandraSession(String keyspace, String ip, int port) {
+        SessionBuilder rawSession = CqlSession.builder().withKeyspace(CqlIdentifier.fromCql(keyspace));
+
+        if (ip.isEmpty()) {
+            return ((CqlSessionBuilder) rawSession).build();
+        } else {
+            int actualPort = port == -1 ? CASSANDRA_PORT : port;
+            return ((CqlSessionBuilder) rawSession)
+                    .addContactPoint(new InetSocketAddress(ip, actualPort))
+                    .withLocalDatacenter("dc1")
+                    .build();
         }
     }
 
-
-    public static void runQueries(String[] args) throws Exception {
-        CqlSession session = CqlSession.builder().
-                withKeyspace(CqlIdentifier.fromCql("wholesale")).
-                build();
-
-        File queryTxt = new File(args[1]);
+    private static void runQueries(CqlSession session, String queryFilename) throws Exception {
+        File queryTxt = new File(queryFilename);
 
         Scanner scanner = new Scanner(queryTxt);
         BaseTransaction transaction;
@@ -78,6 +87,7 @@ public class Main {
 
         start = System.nanoTime();
         while (scanner.hasNext()) {
+            numQueries++;
 
             String line = scanner.nextLine();
             String[] parameters = line.split(",");
@@ -107,6 +117,7 @@ public class Main {
                     transaction = new RelatedCustomerTransaction(session, parameters);
                     break;
                 default:
+                    numQueries--;
                     throw new Exception("Unknown transaction types");
             }
 
@@ -117,12 +128,13 @@ public class Main {
             }
             lStart = System.nanoTime();
             System.out.println("\n======================================================================");
-            System.out.printf("Transaction ID: %d\n", timeRecord.size());
+            // System.out.printf("Transaction ID: %d\n", timeRecord.size());
+            System.out.printf("Transaction ID: %d\n", numQueries);
             transaction.execute(lines);
 
             lEnd = System.nanoTime();
             lapse = lEnd - lStart;
-            System.out.printf("Time taken: %d\n", lapse);
+            System.out.printf("Time taken: %d\n", TimeUnit.MILLISECONDS.convert(lapse, TimeUnit.NANOSECONDS));
             System.out.println("======================================================================");
         }
         session.close();
