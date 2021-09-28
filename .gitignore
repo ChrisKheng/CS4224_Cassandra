@@ -1,6 +1,5 @@
 # Class and data files
 *.class
-*.csv
 *.txt
 
 # Compressed files
