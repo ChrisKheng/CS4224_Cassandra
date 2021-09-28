@@ -5,8 +5,6 @@ import com.datastax.oss.driver.api.core.CqlSession;
 
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.session.SessionBuilder;
-import cs4224.utils.DataLoader;
-import cs4224.utils.Statistics;
 
 import cs4224.transactions.BaseTransaction;
 import cs4224.transactions.DeliveryTransaction;
@@ -17,7 +15,6 @@ import cs4224.transactions.PopularItemTransaction;
 import cs4224.transactions.RelatedCustomerTransaction;
 import cs4224.transactions.StockLevelTransaction;
 import cs4224.transactions.TopBalanceTransaction;
-import jnr.ffi.annotations.In;
 import org.apache.commons.cli.CommandLine;
 
 import java.io.File;
