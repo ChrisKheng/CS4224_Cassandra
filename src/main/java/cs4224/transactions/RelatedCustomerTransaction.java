@@ -99,7 +99,17 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     public void execute(String[] dataLines) {
         HashSet<Customer> relatedCustomers = executeAndGetResult();
         System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
-        relatedCustomers.forEach(System.out::println);
+        System.out.printf("Related customers:");
+        int count = 1;
+        for (Customer customer : relatedCustomers) {
+           if (count == relatedCustomers.size()) {
+               System.out.printf(" %s", customer);
+           } else {
+               System.out.printf(" %s,", customer);
+           }
+           count++;
+        }
+        System.out.printf("\n");
     }
 
     private HashSet<Order> getRelatedOrders(Order order) {
