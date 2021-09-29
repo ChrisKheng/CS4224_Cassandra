@@ -3,8 +3,8 @@ package cs4224.transactions;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
-import cs4224.models.Customer;
-import cs4224.models.Order;
+import cs4224.entities.Customer;
+import cs4224.entities.Order;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -79,7 +79,12 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     for (Row potentialOrderItemRow : potentialOrderItems) {
                         int potentialOrderItemId = potentialOrderItemRow.getInt("OL_I_ID");
                         if (potentialOrderItemId != itemId && itemIdsSet.contains(potentialOrderItemId)) {
-                            relatedOrders.add(new Order(potentialOrderWid, potentialOrderDid, potentialOrderId));
+                            relatedOrders.add(
+                                    Order.builder()
+                                            .warehouseId(potentialOrderWid)
+                                            .districtId(potentialOrderDid)
+                                            .id(potentialOrderId)
+                                            .build());
                             break;
                         }
                     }
@@ -110,11 +115,14 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     "SELECT O_C_ID "
                     + "FROM orders "
                     + "WHERE O_W_ID = %d AND O_D_ID = %d AND O_ID = %d"
-            , order.orderWarehouseId, order.orderDistrictId, order.orderId);
+            , order.getWarehouseId(), order.getDistrictId(), order.getId());
 
             ResultSet customerIdRow = session.execute(query);
-            customers.add(new Customer(order.orderWarehouseId, order.orderDistrictId,
-                    customerIdRow.one().getInt("O_C_ID")));
+            customers.add(Customer.builder()
+                    .warehouseId(order.getWarehouseId())
+                    .districtId(order.getDistrictId())
+                    .id(customerIdRow.one().getInt("O_C_ID"))
+                    .build());
         }
 
         return customers;

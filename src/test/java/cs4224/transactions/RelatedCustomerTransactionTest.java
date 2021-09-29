@@ -1,7 +1,7 @@
 package cs4224.transactions;
 
 import cs4224.extensions.InitializationExtension;
-import cs4224.models.Customer;
+import cs4224.entities.Customer;
 import cs4224.utils.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,9 +24,9 @@ public class RelatedCustomerTransactionTest {
                 new String[]{"R", "1", "1", "1"});
         HashSet<Customer> relatedCustomers = transaction.executeAndGetResult();
         HashSet<Customer> expectedResult = new HashSet<>(Arrays.asList(
-                new Customer(2, 2, 2),
-                new Customer(5, 3, 3))
-        );
+                Customer.builder().warehouseId(2).districtId(2).id(2).build(),
+                Customer.builder().warehouseId(5).districtId(3).id(3).build()
+        ));
 
         Assertions.assertEquals(expectedResult, relatedCustomers);
     }
