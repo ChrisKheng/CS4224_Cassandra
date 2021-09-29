@@ -7,21 +7,13 @@ import cs4224.entities.Customer;
 import cs4224.entities.Order;
 
 import java.util.HashSet;
-import java.util.Objects;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
-    private final int customerWarehouseId;
-    private final int customerDistrictId;
-    private final int customerId;
-
-    public RelatedCustomerTransaction(CqlSession session, String[] parameters) {
-        super(session, parameters);
-        customerWarehouseId = Integer.parseInt(parameters[1]);
-        customerDistrictId = Integer.parseInt(parameters[2]);
-        customerId = Integer.parseInt(parameters[3]);
+    public RelatedCustomerTransaction(CqlSession session) {
+        super(session);
     }
 
-    public HashSet<Customer> executeAndGetResult() {
+    public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
         // 1. Select all the orders that belong to the given customer.
         String query1 = String.format(
                 "Select O_ID "
@@ -96,8 +88,12 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     }
 
     @Override
-    public void execute(String[] dataLines) {
-        HashSet<Customer> relatedCustomers = executeAndGetResult();
+    public void execute(String[] dataLines, String[] parameters) {
+        final int customerWarehouseId = Integer.parseInt(parameters[1]);
+        final int customerDistrictId = Integer.parseInt(parameters[2]);
+        final int customerId = Integer.parseInt(parameters[3]);
+
+        HashSet<Customer> relatedCustomers = executeAndGetResult(customerWarehouseId, customerDistrictId, customerId);
         System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
         System.out.printf("Related customers:");
         int count = 1;

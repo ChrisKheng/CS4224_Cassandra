@@ -4,12 +4,12 @@ import com.datastax.oss.driver.api.core.CqlSession;
 
 public class TopBalanceTransaction extends BaseTransaction {
 
-    public TopBalanceTransaction(CqlSession session, String[] parameters) {
-        super(session, parameters);
+    public TopBalanceTransaction(CqlSession session) {
+        super(session);
     }
 
     @Override
-    public void execute(String[] dataLines) {
+    public void execute(String[] dataLines, String[] parameters) {
 
     }
 }
