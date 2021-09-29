@@ -21,8 +21,7 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         customerId = Integer.parseInt(parameters[3]);
     }
 
-    @Override
-    public void execute(String[] dataLines) {
+    public HashSet<Customer> executeAndGetResult() {
         // 1. Select all the orders that belong to the given customer.
         String query1 = String.format(
                 "Select O_ID "
@@ -39,9 +38,9 @@ public class RelatedCustomerTransaction extends BaseTransaction {
             int orderId = orderIdRow.getInt("O_ID");
             String query2 = String.format(
                     "SELECT OL_I_ID "
-                    + "FROM order_line "
-                    + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
-            , customerWarehouseId, customerDistrictId, orderId);
+                            + "FROM order_line "
+                            + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
+                    , customerWarehouseId, customerDistrictId, orderId);
             ResultSet itemIds = session.execute(query2);
             HashSet<Integer> itemIdsSet = new HashSet<>();
             itemIds.forEach(r -> itemIdsSet.add(r.getInt("OL_I_ID")));
@@ -52,9 +51,9 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                 // 2.2.1 Select all the orders that have the item
                 String query3 = String.format(
                         "SELECT O_W_ID, O_D_ID, O_ID "
-                        + "FROM order_by_item "
-                        + "WHERE I_ID = %d"
-                , itemId);
+                                + "FROM order_by_item "
+                                + "WHERE I_ID = %d"
+                        , itemId);
                 ResultSet potentialOrders = session.execute(query3);
 
                 // 2.2.2. For each potentially related order retrieved in 2.2.1:
@@ -71,9 +70,9 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     // 2.2.2.1 Select all the items of the potentially related order.
                     String query4 = String.format(
                             "SELECT OL_I_ID "
-                            + "FROM order_line "
-                            + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
-                    , potentialOrderWid, potentialOrderDid, potentialOrderId);
+                                    + "FROM order_line "
+                                    + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
+                            , potentialOrderWid, potentialOrderDid, potentialOrderId);
                     ResultSet potentialOrderItems = session.execute(query4);
 
                     // 2.2.2.2
@@ -82,10 +81,10 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                         if (potentialOrderItemId != itemId && itemIdsSet.contains(potentialOrderItemId)) {
                             relatedOrders.add(
                                     Order.builder()
-                                    .id(potentialOrderId)
-                                    .warehouseId(potentialOrderWid)
-                                    .districtId(potentialOrderDid)
-                                    .build());
+                                            .warehouseId(potentialOrderWid)
+                                            .districtId(potentialOrderDid)
+                                            .id(potentialOrderId)
+                                            .build());
                             break;
                         }
                     }
@@ -93,9 +92,24 @@ public class RelatedCustomerTransaction extends BaseTransaction {
             }
         }
 
-        HashSet<Customer> relatedCustomers = getCustomersOfOrders(relatedOrders);
+        return getCustomersOfOrders(relatedOrders);
+    }
+
+    @Override
+    public void execute(String[] dataLines) {
+        HashSet<Customer> relatedCustomers = executeAndGetResult();
         System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
-        relatedCustomers.forEach(System.out::println);
+        System.out.printf("Related customers:");
+        int count = 1;
+        for (Customer customer : relatedCustomers) {
+           if (count == relatedCustomers.size()) {
+               System.out.printf(" %s", customer);
+           } else {
+               System.out.printf(" %s,", customer);
+           }
+           count++;
+        }
+        System.out.printf("\n");
     }
 
     private HashSet<Order> getRelatedOrders(Order order) {
@@ -112,13 +126,12 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     + "FROM orders "
                     + "WHERE O_W_ID = %d AND O_D_ID = %d AND O_ID = %d"
             , order.getWarehouseId(), order.getDistrictId(), order.getId());
-            System.out.println(query);
 
             ResultSet customerIdRow = session.execute(query);
             customers.add(Customer.builder()
-                    .id(customerIdRow.one().getInt("O_C_ID"))
                     .warehouseId(order.getWarehouseId())
                     .districtId(order.getDistrictId())
+                    .id(customerIdRow.one().getInt("O_C_ID"))
                     .build());
         }
 
