@@ -11,7 +11,7 @@ import lombok.*;
 @Builder
 @JsonInclude(Include.NON_NULL)
 public class Order {
-    private int id;
-    private int warehouseId;
-    private int districtId;
+    private Integer id;
+    private Integer warehouseId;
+    private Integer districtId;
 }

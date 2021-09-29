@@ -1,10 +1,14 @@
 package cs4224.extensions;
 
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import cs4224.utils.Utils;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+
+import java.net.InetSocketAddress;
 
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.GLOBAL;
 
@@ -15,15 +19,26 @@ import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.GLOBAL;
  */
 public class InitializationExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
     private static boolean started = false;
-    public static CqlSession session = CqlSession.builder()
-            .withKeyspace(CqlIdentifier.fromCql("wholesale_test"))
-            .build();
+    public static CqlSession session;
 
     @Override
     public void beforeAll(ExtensionContext context) {
         if (!started) {
             started = true;
             context.getRoot().getStore(GLOBAL).put("InitializationExtension", this);
+
+            try {
+                session = CqlSession.builder()
+                        .withKeyspace(CqlIdentifier.fromCql("wholesale_test"))
+                        .build();
+            } catch (AllNodesFailedException e) {
+                session = CqlSession.builder()
+                        .withKeyspace("wholesale_dev_b")
+                        .addContactPoint(new InetSocketAddress("192.168.48.189", 9042))
+                        .withLocalDatacenter("dc1")
+                        .build();
+            }
+
         }
         System.out.println("Initializing tests...");
         createSchema();
