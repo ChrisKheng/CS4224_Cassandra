@@ -33,6 +33,14 @@ dependencies {
             'commons-cli:commons-cli:1.4'
     )
 
+    compileOnly (
+            'org.projectlombok:lombok:1.18.20'
+    )
+
+    annotationProcessor (
+            'org.projectlombok:lombok:1.18.20'
+    )
+
     testImplementation(
             'org.junit.jupiter:junit-jupiter-api:5.8.0'
     )
