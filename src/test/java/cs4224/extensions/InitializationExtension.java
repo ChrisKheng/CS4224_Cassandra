@@ -1,5 +1,7 @@
 package cs4224.extensions;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
 import cs4224.utils.Utils;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -9,9 +11,13 @@ import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.GLOBAL;
 /**
  * IMPORTANT:
  * This test initialisation assumes that you already have a locally running Cassandra instance and have cqlsh.
+ * This test is tested on MacOS platform.
  */
 public class InitializationExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
     private static boolean started = false;
+    public static CqlSession session = CqlSession.builder()
+            .withKeyspace(CqlIdentifier.fromCql("wholesale_test"))
+            .build();
 
     @Override
     public void beforeAll(ExtensionContext context) {
