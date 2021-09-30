@@ -20,9 +20,8 @@ public class RelatedCustomerTransactionTest {
 
     @Test
     public void testExecuteHasRelatedCustomer() {
-        RelatedCustomerTransaction transaction = new RelatedCustomerTransaction(InitializationExtension.session,
-                new String[]{"R", "1", "1", "1"});
-        HashSet<Customer> relatedCustomers = transaction.executeAndGetResult();
+        RelatedCustomerTransaction transaction = new RelatedCustomerTransaction(InitializationExtension.session);
+        HashSet<Customer> relatedCustomers = transaction.executeAndGetResult(1, 1, 1);
         HashSet<Customer> expectedResult = new HashSet<>(Arrays.asList(
                 Customer.builder().warehouseId(2).districtId(2).id(2).build(),
                 Customer.builder().warehouseId(5).districtId(3).id(3).build()

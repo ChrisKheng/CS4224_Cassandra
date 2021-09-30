@@ -3,21 +3,17 @@ package cs4224.transactions;
 import com.datastax.oss.driver.api.core.CqlSession;
 
 public class StockLevelTransaction extends BaseTransaction {
-    private final int warehouseId;
-    private final int districtId;
-    private final int threshold;
-    private final int noOfOrders;
 
     public StockLevelTransaction(CqlSession session, String[] parameters) {
-        super(session, parameters);
-        warehouseId = Integer.parseInt(parameters[1]);
-        districtId = Integer.parseInt(parameters[2]);
-        threshold = Integer.parseInt(parameters[3]);
-        noOfOrders = Integer.parseInt(parameters[4]);
+        super(session);
+
     }
 
     @Override
-    public void execute(String[] dataLines) {
-
+    public void execute(String[] dataLines, String[] parameters) {
+        final int warehouseId = Integer.parseInt(parameters[1]);
+        final int districtId = Integer.parseInt(parameters[2]);
+        final int threshold = Integer.parseInt(parameters[3]);
+        final int noOfOrders = Integer.parseInt(parameters[4]);
     }
 }
