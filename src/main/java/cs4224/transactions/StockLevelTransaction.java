@@ -4,7 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 
 public class StockLevelTransaction extends BaseTransaction {
 
-    public StockLevelTransaction(CqlSession session, String[] parameters) {
+    public StockLevelTransaction(CqlSession session) {
         super(session);
 
     }
