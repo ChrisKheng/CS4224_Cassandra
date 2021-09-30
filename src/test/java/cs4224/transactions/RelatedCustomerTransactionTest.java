@@ -1,7 +1,7 @@
 package cs4224.transactions;
 
 import cs4224.extensions.InitializationExtension;
-import cs4224.entities.Customer;
+import cs4224.entities.customer.Customer;
 import cs4224.utils.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
