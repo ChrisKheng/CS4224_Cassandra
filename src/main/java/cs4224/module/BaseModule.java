@@ -6,6 +6,7 @@ import com.datastax.oss.driver.api.core.session.SessionBuilder;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import cs4224.dao.CustomerDao;
 import cs4224.dao.DistrictDao;
 import cs4224.dao.WarehouseDao;
@@ -35,6 +36,7 @@ public class BaseModule extends AbstractModule {
 
 
     @Provides
+    @Singleton
     public CqlSession provideCqlSession() {
         SessionBuilder rawSession = CqlSession.builder().withKeyspace(CqlIdentifier.fromCql(keyspace));
 
@@ -108,5 +110,11 @@ public class BaseModule extends AbstractModule {
     @Inject
     public TopBalanceTransaction provideTopBalanceTransaction(CqlSession session) {
         return new TopBalanceTransaction(session);
+    }
+
+    @Provides
+    @Inject
+    public StockLevelTransaction provideStockLevelTransaction(CqlSession session) {
+        return new StockLevelTransaction(session);
     }
 }

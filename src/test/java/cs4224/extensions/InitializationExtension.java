@@ -51,6 +51,7 @@ public class InitializationExtension implements BeforeAllCallback, ExtensionCont
 
     @Override
     public void close() {
+        session.close();
         System.out.println("Complete all tests!");
     }
 }
