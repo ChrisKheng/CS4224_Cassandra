@@ -25,20 +25,19 @@ public class Driver {
 
 
     @Inject
-    public Driver(CqlSession session, NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction1,
-                  DeliveryTransaction deliveryTransaction1, OrderStatusTransaction orderStatusTransaction1,
-                  StockLevelTransaction stockLevelTransaction1, PopularItemTransaction popularItemTransaction1,
-                  TopBalanceTransaction topBalanceTransaction1, RelatedCustomerTransaction relatedCustomerTransaction1) {
+    public Driver(CqlSession session, NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
+                  DeliveryTransaction deliveryTransaction, OrderStatusTransaction orderStatusTransaction,
+                  StockLevelTransaction stockLevelTransaction, PopularItemTransaction popularItemTransaction,
+                  TopBalanceTransaction topBalanceTransaction, RelatedCustomerTransaction relatedCustomerTransaction) {
         this.session = session;
         this.newOrderTransaction = newOrderTransaction;
-        this.paymentTransaction = paymentTransaction1;
-
-        this.deliveryTransaction = deliveryTransaction1;
-        this.orderStatusTransaction = orderStatusTransaction1;
-        this.stockLevelTransaction = stockLevelTransaction1;
-        this.popularItemTransaction = popularItemTransaction1;
-        this.topBalanceTransaction = topBalanceTransaction1;
-        this.relatedCustomerTransaction = relatedCustomerTransaction1;
+        this.paymentTransaction = paymentTransaction;
+        this.deliveryTransaction = deliveryTransaction;
+        this.orderStatusTransaction = orderStatusTransaction;
+        this.stockLevelTransaction = stockLevelTransaction;
+        this.popularItemTransaction = popularItemTransaction;
+        this.topBalanceTransaction = topBalanceTransaction;
+        this.relatedCustomerTransaction = relatedCustomerTransaction;
     }
 
     void runQueries(String queryFilename) throws Exception {
