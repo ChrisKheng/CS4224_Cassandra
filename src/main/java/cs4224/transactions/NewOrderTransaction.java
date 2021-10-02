@@ -1,6 +1,16 @@
 package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.Row;
+import jnr.ffi.annotations.In;
+
+import java.math.BigDecimal;
+import java.text.Format;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 
 public class NewOrderTransaction extends BaseTransaction {
     private int customerId;
@@ -8,7 +18,8 @@ public class NewOrderTransaction extends BaseTransaction {
     private int districtId;
     private int noOfItems;
 
-    public NewOrderTransaction(CqlSession session) {
+    public NewOrderTransaction(CqlSession session)
+    {
         super(session);
     }
 
@@ -28,5 +39,7 @@ public class NewOrderTransaction extends BaseTransaction {
         for (String line : dataLines) {
             System.out.println(line);
         }
+
+        System.out.println("Test");
     }
 }
