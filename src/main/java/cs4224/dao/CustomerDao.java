@@ -4,7 +4,8 @@ import com.datastax.oss.driver.api.mapper.annotations.CqlName;
 import com.datastax.oss.driver.api.mapper.annotations.Dao;
 import com.datastax.oss.driver.api.mapper.annotations.Query;
 import com.datastax.oss.driver.api.mapper.annotations.Update;
-import cs4224.entities.Customer;
+import cs4224.entities.customer.Customer;
+import cs4224.entities.customer.CustomerName;
 
 import static com.datastax.oss.driver.api.mapper.entity.saving.NullSavingStrategy.DO_NOT_SET;
 
@@ -18,4 +19,8 @@ public interface CustomerDao {
             nullSavingStrategy = DO_NOT_SET)
     void updateWhereIdEquals(Customer customer, @CqlName("c_w_id") int warehouseId, @CqlName("c_d_id") int districtId,
                              @CqlName("c_id") int id);
+
+    @Query("SELECT C_FIRST, C_MIDDLE, C_LAST FROM ${qualifiedTableId} WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id " +
+            "AND C_ID = :c_id")
+    CustomerName getNameById(@CqlName("c_w_id") int warehouseId, @CqlName("c_d_id") int districtId, @CqlName("c_id") int id);
 }

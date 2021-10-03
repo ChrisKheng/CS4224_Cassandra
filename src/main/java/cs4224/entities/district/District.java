@@ -1,4 +1,4 @@
-package cs4224.entities;
+package cs4224.entities.district;
 
 import com.datastax.oss.driver.api.mapper.annotations.CqlName;
 import com.datastax.oss.driver.api.mapper.annotations.Entity;
@@ -51,4 +51,9 @@ public class District {
 
     @CqlName("d_next_o_id")
     private Integer nextOrderId;
+
+    public String addressToString() {
+        return String.format("street1=%s, street2=%s, city=%s, state=%s, zip=%s",
+                street1, street2, city, state, zip);
+    }
 }

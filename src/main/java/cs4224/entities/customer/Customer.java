@@ -1,14 +1,16 @@
-package cs4224.entities;
+package cs4224.entities.customer;
 
 import com.datastax.oss.driver.api.mapper.annotations.ClusteringColumn;
 import com.datastax.oss.driver.api.mapper.annotations.CqlName;
 import com.datastax.oss.driver.api.mapper.annotations.Entity;
 import com.datastax.oss.driver.api.mapper.annotations.PartitionKey;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+
 
 @Data
 @NoArgsConstructor
@@ -74,15 +76,19 @@ public class Customer {
     private BigDecimal balance;
 
     @CqlName("c_ytd_payment")
+    @ToString.Exclude
     private float paymentYTD;
 
     @CqlName("c_payment_cnt")
+    @ToString.Exclude
     private Integer numPayments;
 
     @CqlName("c_delivery_cnt")
+    @ToString.Exclude
     private Integer numDeliveries;
 
     @CqlName("c_data")
+    @ToString.Exclude
     private String miscData;
 
     public String toSpecifier() {

@@ -4,8 +4,8 @@ import com.datastax.oss.driver.api.mapper.annotations.CqlName;
 import com.datastax.oss.driver.api.mapper.annotations.Dao;
 import com.datastax.oss.driver.api.mapper.annotations.Query;
 import com.datastax.oss.driver.api.mapper.annotations.Update;
-import cs4224.entities.District;
-import cs4224.entities.Warehouse;
+import cs4224.entities.district.District;
+import cs4224.entities.district.NextOrderID;
 
 import static com.datastax.oss.driver.api.mapper.entity.saving.NullSavingStrategy.DO_NOT_SET;
 
@@ -17,4 +17,7 @@ public interface DistrictDao {
 
     @Update(customWhereClause = "D_W_ID = :d_w_id AND D_ID = :d_id", nullSavingStrategy = DO_NOT_SET)
     void updateWhereIdEquals(District district, @CqlName("d_w_id") int warehouseId, @CqlName("d_id") int id);
+
+    @Query("SELECT D_NEXT_O_ID FROM ${qualifiedTableId} WHERE D_W_ID = :d_w_id AND D_ID = :d_id")
+    NextOrderID getNextOrderId(@CqlName("d_w_id") int warehouseId, @CqlName("d_id") int id);
 }
