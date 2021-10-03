@@ -2,7 +2,12 @@ package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import jnr.ffi.annotations.In;
+import cs4224.entities.Customer;
+import cs4224.entities.Order;
+import cs4224.entities.District;
+import cs4224.entities.Warehouse;
 
 import java.math.BigDecimal;
 import java.text.Format;
@@ -18,8 +23,10 @@ public class NewOrderTransaction extends BaseTransaction {
     private int districtId;
     private int noOfItems;
 
-    public NewOrderTransaction(CqlSession session)
-    {
+    private static final Format formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+
+
+    public NewOrderTransaction(CqlSession session) {
         super(session);
     }
 
@@ -35,11 +42,45 @@ public class NewOrderTransaction extends BaseTransaction {
         districtId = Integer.parseInt(parameters[3]);
         noOfItems = Integer.parseInt(parameters[4]);
 
-        System.out.printf("Running New Order Transaction with C_ID= %d, W_ID=%d, D_ID=%d, N=%d \n", customerId, warehouseId, districtId, noOfItems);
-        for (String line : dataLines) {
-            System.out.println(line);
+        List<Integer> itemnos = new ArrayList<>();
+        List<Integer> supplierwhse = new ArrayList<>();
+        List<Integer> qty = new ArrayList<>();
+
+        for (String dl : dataLines) {
+            String[] parts = dl.split(",");
+            itemnos.add(Integer.parseInt(parts[0]));
+            supplierwhse.add(Integer.parseInt(parts[1]));
+            qty.add(Integer.parseInt(parts[2]));
         }
 
-        System.out.println("Test");
+        /*
+        Given
+         */
+        CreateNewOrder(itemnos, supplierwhse, qty);
+
     }
-}
+        private void CreateNewOrder (List < Integer > itemnos, List < Integer > supplierwhse, List < Integer > qty){
+            ArrayList<Double> adjusted_qty = new ArrayList<>();
+            ArrayList<Double> item_amt = new ArrayList<>();
+            ArrayList<String> item_name = new ArrayList<>();
+
+            String get_next_order_number = String.format("SELECT D_NEXT_O_ID FROM district WHERE D_W_ID = %d AND D_ID = %d", warehouseId, districtId);
+            // List<Row> district = session.execute(get_next_order_number).all();
+            Row res = session.execute(get_next_order_number).all().get(0);
+            long next_order_num = res.getLong("D_NEXT_O_ID");
+
+            String get_district_tax_query = String.format("SELECT D_TAX from district WHERE D_W_ID = %d AND D_ID = %d", warehouseId, districtId);
+            res = session.execute(get_district_tax_query).all().get(0);
+            double district_tax = res.getBigDecimal("D_TAX").doubleValue();
+            String increase_order_num_query = String.format("UPDATE district SET D_NEXT_O_ID = D_NEXT_O_ID + 1 WHERE D_W_ID = %d AND D_ID = %d", warehouseId, districtId);
+            session.execute(increase_order_num_query);
+        }
+
+       // System.out.println("Running New Order Transaction with C_ID= %d, W_ID=%d, D_ID=%d, N=%d \n", customerId, warehouseId, districtId, noOfItems);
+       // for (String line : dataLines) {
+          //  System.out.println(line);
+        }
+
+
+
+
