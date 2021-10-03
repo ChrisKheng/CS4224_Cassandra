@@ -13,6 +13,27 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         super(session);
     }
 
+    @Override
+    public void execute(String[] dataLines, String[] parameters) {
+        final int customerWarehouseId = Integer.parseInt(parameters[1]);
+        final int customerDistrictId = Integer.parseInt(parameters[2]);
+        final int customerId = Integer.parseInt(parameters[3]);
+
+        HashSet<Customer> relatedCustomers = executeAndGetResult(customerWarehouseId, customerDistrictId, customerId);
+        System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
+        System.out.printf("Related customers (C_W_ID, C_D_ID, C_ID):");
+        int count = 1;
+        for (Customer customer : relatedCustomers) {
+            if (count == relatedCustomers.size()) {
+                System.out.printf(" %s", customer.toSpecifier());
+            } else {
+                System.out.printf(" %s,", customer.toSpecifier());
+            }
+            count++;
+        }
+        System.out.printf("\n");
+    }
+
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
         // 1. Select all the orders that belong to the given customer.
         String query1 = String.format(
@@ -85,27 +106,6 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         }
 
         return getCustomersOfOrders(relatedOrders);
-    }
-
-    @Override
-    public void execute(String[] dataLines, String[] parameters) {
-        final int customerWarehouseId = Integer.parseInt(parameters[1]);
-        final int customerDistrictId = Integer.parseInt(parameters[2]);
-        final int customerId = Integer.parseInt(parameters[3]);
-
-        HashSet<Customer> relatedCustomers = executeAndGetResult(customerWarehouseId, customerDistrictId, customerId);
-        System.out.printf("Number of relatedCustomers: %d\n", relatedCustomers.size());
-        System.out.printf("Related customers:");
-        int count = 1;
-        for (Customer customer : relatedCustomers) {
-           if (count == relatedCustomers.size()) {
-               System.out.printf(" %s", customer);
-           } else {
-               System.out.printf(" %s,", customer);
-           }
-           count++;
-        }
-        System.out.printf("\n");
     }
 
     private HashSet<Order> getRelatedOrders(Order order) {

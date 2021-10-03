@@ -85,4 +85,7 @@ public class Customer {
     @CqlName("c_data")
     private String miscData;
 
+    public String toSpecifier() {
+        return String.format("(%d, %d, %d)", warehouseId, districtId, id);
+    }
 }
