@@ -4,9 +4,9 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import cs4224.dao.CustomerDao;
 import cs4224.dao.DistrictDao;
 import cs4224.dao.WarehouseDao;
-import cs4224.entities.Customer;
-import cs4224.entities.District;
-import cs4224.entities.Warehouse;
+import cs4224.entities.customer.Customer;
+import cs4224.entities.district.District;
+import cs4224.entities.warehouse.Warehouse;
 
 import java.math.BigDecimal;
 
@@ -49,5 +49,14 @@ public class PaymentTransaction extends BaseTransaction {
         customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                 customerId);
 
+        printOutput(customer, warehouse, district, paymentAmount);
+    }
+
+    private void printOutput(final Customer customer, final Warehouse warehouse, final District district,
+                             final double paymentAmount ) {
+        System.out.printf(" %s\n", customer);
+        System.out.printf(" Warehouse(%s)\n", warehouse.addressToString());
+        System.out.printf(" District(%s)\n", district.addressToString());
+        System.out.printf(" Payment Amount= %f\n", paymentAmount);
     }
 }

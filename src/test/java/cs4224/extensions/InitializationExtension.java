@@ -3,7 +3,6 @@ package cs4224.extensions;
 import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import cs4224.utils.Utils;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -33,7 +32,7 @@ public class InitializationExtension implements BeforeAllCallback, ExtensionCont
                         .build();
             } catch (AllNodesFailedException e) {
                 session = CqlSession.builder()
-                        .withKeyspace("wholesale_dev_b")
+                        .withKeyspace("wholesale_dev_a")
                         .addContactPoint(new InetSocketAddress("192.168.48.189", 9042))
                         .withLocalDatacenter("dc1")
                         .build();
