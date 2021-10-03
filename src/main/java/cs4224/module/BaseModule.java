@@ -7,12 +7,11 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import cs4224.dao.*;
+import cs4224.mapper.*;
 import cs4224.dao.CustomerDao;
 import cs4224.dao.DistrictDao;
 import cs4224.dao.WarehouseDao;
-import cs4224.mapper.CustomerMapperBuilder;
-import cs4224.mapper.DistrictMapperBuilder;
-import cs4224.mapper.WarehouseMapperBuilder;
 import cs4224.transactions.*;
 
 import java.net.InetSocketAddress;
@@ -38,7 +37,7 @@ public class BaseModule extends AbstractModule {
     @Provides
     @Singleton
     public CqlSession provideCqlSession() {
-        SessionBuilder rawSession = CqlSession.builder().withKeyspace(CqlIdentifier.fromCql(keyspace));
+        final SessionBuilder rawSession = CqlSession.builder().withKeyspace(CqlIdentifier.fromCql(keyspace));
 
         if (ip.isEmpty()) {
             return ((CqlSessionBuilder) rawSession).build();
@@ -71,6 +70,30 @@ public class BaseModule extends AbstractModule {
 
     @Provides
     @Inject
+    public OrderDao provideOrderDao(CqlSession session) {
+        return new OrderMapperBuilder(session).build().dao(ORDER_TABLE);
+    }
+
+    @Provides
+    @Inject
+    public OrderLineDao provideOrderLineDao(CqlSession session) {
+        return new OrderLineMapperBuilder(session).build().dao(ORDER_LINE_TABLE);
+    }
+
+    @Provides
+    @Inject
+    public ItemDao provideItemDao(CqlSession session) {
+        return new ItemMapperBuilder(session).build().dao(ITEM_TABLE);
+    }
+
+    @Provides
+    @Inject
+    public OrderByItemDao provideOrderByItemDao(CqlSession session) {
+        return new OrderItemMapperBuilder(session).build().dao(ORDER_BY_ITEM_TABLE);
+    }
+
+    @Provides
+    @Inject
     public PaymentTransaction providePaymentTransaction(CqlSession session, WarehouseDao warehouseDao,
                                                          DistrictDao districtDao, CustomerDao customerDao) {
         return new PaymentTransaction(session, warehouseDao, districtDao, customerDao);
@@ -96,8 +119,12 @@ public class BaseModule extends AbstractModule {
 
     @Provides
     @Inject
-    public PopularItemTransaction providePopularItemTransaction(CqlSession session) {
-        return new PopularItemTransaction(session);
+    public PopularItemTransaction providePopularItemTransaction(CqlSession session, DistrictDao districtDao,
+                                                                CustomerDao customerDao, OrderDao orderDao,
+                                                                OrderLineDao orderLineDao, ItemDao itemDao,
+                                                                OrderByItemDao orderByItemDao) {
+        return new PopularItemTransaction(session, districtDao, customerDao, orderDao, orderLineDao, itemDao,
+                orderByItemDao);
     }
 
     @Provides

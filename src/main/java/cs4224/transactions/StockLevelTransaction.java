@@ -6,7 +6,6 @@ public class StockLevelTransaction extends BaseTransaction {
 
     public StockLevelTransaction(CqlSession session) {
         super(session);
-
     }
 
     @Override
