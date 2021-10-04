@@ -4,9 +4,9 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import cs4224.dao.CustomerDao;
 import cs4224.dao.DistrictDao;
 import cs4224.dao.WarehouseDao;
-import cs4224.entities.customer.Customer;
-import cs4224.entities.district.District;
-import cs4224.entities.warehouse.Warehouse;
+import cs4224.entities.Customer;
+import cs4224.entities.District;
+import cs4224.entities.Warehouse;
 
 import java.math.BigDecimal;
 
@@ -30,18 +30,18 @@ public class PaymentTransaction extends BaseTransaction {
         final int customerId = Integer.parseInt(parameters[3]);
         final double paymentAmount = Double.parseDouble(parameters[4]);
 
-        final Warehouse warehouse = warehouseDao.getById(customerWarehouseId);
+        final Warehouse warehouse = Warehouse.map(warehouseDao.getById(customerWarehouseId));
         final Warehouse updatedWarehouse = new Warehouse();
         updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId);
 
-        final District district = districtDao.getById(customerWarehouseId, customerDistrictId);
+        final District district = District.map(districtDao.getById(customerWarehouseId, customerDistrictId));
         final District updatedDistrict = new District();
         updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId);
 
-        final Customer customer = customerDao.getById(customerWarehouseId, customerDistrictId,
-                customerId);
+        final Customer customer = Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId,
+                customerId));
         final Customer updatedCustomer = new Customer();
         updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)));
         updatedCustomer.setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount));

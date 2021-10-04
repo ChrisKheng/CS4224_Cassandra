@@ -3,13 +3,8 @@ package cs4224.transactions;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.sun.tools.javac.util.Pair;
 import cs4224.dao.*;
-import cs4224.entities.customer.CustomerName;
-import cs4224.entities.district.NextOrderID;
-import cs4224.entities.order.OrderPopularItem;
-import cs4224.entities.orderline.OrderLineItem;
+import cs4224.entities.*;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -41,26 +36,25 @@ public class PopularItemTransaction extends BaseTransaction {
         final int districtId = Integer.parseInt(parameters[2]);
         final int L = Integer.parseInt(parameters[3]);
 
-        final NextOrderID nextOrderId = districtDao.getNextOrderId(warehouseId, districtId);
-        final Stream<OrderPopularItem> orders = orderDao.getById(warehouseId, districtId,
-                nextOrderId.getNextOrderId()-L, nextOrderId.getNextOrderId());
+        final Integer nextOrderId = getDistrict(warehouseId, districtId).getNextOrderId();
+        final List<Order> orders = orderDao.getById(warehouseId, districtId,
+                nextOrderId - L, nextOrderId).all().stream()
+                .map(Order::map).collect(Collectors.toList());
 
         // Order -> (max_quantity, [popular items])
-        final Map<OrderPopularItem, Pair<BigDecimal, List<Integer>>> orderPopularItems = new HashMap<>();
+        final Map<Order, Pair<BigDecimal, List<Integer>>> orderPopularItems = new HashMap<>();
 
         // CustomerId -> CustomerName
-        final Map<Integer, CustomerName> customerMap = new HashMap<>();
+        final Map<Integer, Customer> customerMap = new HashMap<>();
 
         orders.forEach(order -> {
-            final BigDecimal max_quantity = orderLineDao
-                    .getOLQuantity(warehouseId, districtId, order.getId()).getQuantity();
-            final Stream<OrderLineItem> orderLineItem = orderLineDao
-                    .getOLItemId(warehouseId, districtId, order.getId(), max_quantity);
-            final List<Integer> items = orderLineItem.map(OrderLineItem::getItemId).collect(Collectors.toList());
+            final BigDecimal max_quantity = getOrderLineMaxQuantity(warehouseId, districtId, order);
+            final Stream<OrderLine> orderLineItem = getOrderLine(warehouseId, districtId, order, max_quantity);
+            final List<Integer> items = orderLineItem.map(OrderLine::getItemId).collect(Collectors.toList());
             orderPopularItems.put(order, new Pair<>(max_quantity, items));
 
             customerMap.put(order.getCustomerId(),
-                    customerDao.getNameById(warehouseId, districtId, order.getCustomerId()));
+                    Customer.map(customerDao.getNameById(warehouseId, districtId, order.getCustomerId())));
         });
 
         // All Items in last L orders
@@ -68,26 +62,24 @@ public class PopularItemTransaction extends BaseTransaction {
         orderPopularItems.forEach((order, pair) -> items.addAll(pair.snd));
 
         // List of L orderIds
-        final List<Integer> orderIds = orders.map(OrderPopularItem::getId).collect(Collectors.toList());
+        final List<Integer> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
 
         // Item -> Num of Orders
         final Map<Integer, Long> itemPopularity = new HashMap<>();
         // Item -> Item Name
         final Map<Integer, String> itemName = new HashMap<>();
         items.forEach(item -> {
-            itemPopularity.put(item,
-                    orderByItemDao.getCountByItemId(warehouseId, districtId, item, orderIds));
-            itemName.put(item, itemDao.getNameById(item).getName());
+            itemPopularity.put(item, orderByItemDao.getCountByItemId(warehouseId, districtId, item, orderIds));
+            itemName.put(item, getItemName(item));
         });
 
         printOutput(warehouseId, districtId, L, orderPopularItems, customerMap, itemPopularity, itemName);
-
     }
 
 
     private void printOutput(final int warehouseId, final int districtId, final int L,
-                             final Map<OrderPopularItem, Pair<BigDecimal, List<Integer>>> orderPopularItems,
-                             final Map<Integer, CustomerName> customerMap, final Map<Integer, Long> itemPopularity,
+                             final Map<Order, Pair<BigDecimal, List<Integer>>> orderPopularItems,
+                             final Map<Integer, Customer> customerMap, final Map<Integer, Long> itemPopularity,
                              final Map<Integer, String> itemName) {
         System.out.printf(" Warehouse Id: %d, District Id: %d\n", warehouseId, districtId);
         System.out.printf(" Number of last orders to be examined: %d\n\n", L);
@@ -102,6 +94,25 @@ public class PopularItemTransaction extends BaseTransaction {
 
         itemPopularity.forEach((item, numOrders) ->
                 System.out.printf(" Item Name: %s, Percentage orders : %f\n", itemName.get(item),
-                        ((float)numOrders/L)));
+                        ((float) numOrders / L)));
+    }
+
+    private District getDistrict(final int warehouseId, final int districtId) {
+        return District.map(districtDao.getNextOrderId(warehouseId, districtId));
+    }
+
+    private BigDecimal getOrderLineMaxQuantity(final int warehouseId, final int districtId, final Order order) {
+        return OrderLine.map(orderLineDao
+                .getOLQuantity(warehouseId, districtId, order.getId())).getQuantity();
+    }
+
+    private Stream<OrderLine> getOrderLine(final int warehouseId, final int districtId, final Order order,
+                                           final BigDecimal max_quantity) {
+        return orderLineDao.getOLItemId(warehouseId, districtId, order.getId(), max_quantity).all()
+                .stream().map(OrderLine::map);
+    }
+
+    private String getItemName(final int item) {
+        return Item.map(itemDao.getNameById(item)).getName();
     }
 }
