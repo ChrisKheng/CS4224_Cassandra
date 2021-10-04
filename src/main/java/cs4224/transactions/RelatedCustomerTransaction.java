@@ -1,6 +1,7 @@
 package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import cs4224.entities.customer.Customer;
@@ -9,8 +10,34 @@ import cs4224.entities.order.Order;
 import java.util.HashSet;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
+    PreparedStatement getOrdersOfCustomerQuery;
+    PreparedStatement getItemsOfOrderQuery;
+    PreparedStatement getOrdersOfItemQuery;
+    PreparedStatement getCustomerOfOrderQuery;
+
     public RelatedCustomerTransaction(CqlSession session) {
         super(session);
+
+        getOrdersOfCustomerQuery = session.prepare(
+                "SELECT O_ID "
+                        + "FROM order_by_customer "
+                        + "WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id AND C_ID = :c_id"
+        );
+        getItemsOfOrderQuery = session.prepare(
+                "SELECT OL_I_ID "
+                        + "FROM order_line "
+                        + "WHERE OL_W_ID = :ol_w_id AND OL_D_ID = :ol_d_id AND OL_O_ID = :ol_o_id"
+        );
+        getOrdersOfItemQuery = session.prepare(
+                "SELECT O_W_ID, O_D_ID, O_ID "
+                        + "FROM order_by_item "
+                        + "WHERE I_ID = :i_id"
+        );
+        getCustomerOfOrderQuery = session.prepare(
+                "SELECT O_C_ID "
+                        + "FROM orders "
+                        + "WHERE O_W_ID = :ol_w_id AND O_D_ID = :ol_d_id AND O_ID = :o_id"
+        );
     }
 
     @Override
@@ -36,73 +63,23 @@ public class RelatedCustomerTransaction extends BaseTransaction {
 
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
         // 1. Select all the orders that belong to the given customer.
-        String query1 = String.format(
-                "Select O_ID "
-                        + "FROM order_by_customer "
-                        + "WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d"
-                , customerWarehouseId, customerDistrictId, customerId);
-        ResultSet orderIds = session.execute(query1);
+        ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.bind()
+                .setInt("c_w_id", customerWarehouseId)
+                .setInt("c_d_id", customerDistrictId)
+                .setInt("c_id", customerId));
         HashSet<Order> relatedOrders = new HashSet<>();
 
         // 2. For each order retrieved in 1:
         // Probably can optimize by avoiding rescanning repeated potentially related order
         for (Row orderIdRow : orderIds) {
-            // 2.1. Select all the items that belong to the order.
             int orderId = orderIdRow.getInt("O_ID");
-            String query2 = String.format(
-                    "SELECT OL_I_ID "
-                            + "FROM order_line "
-                            + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
-                    , customerWarehouseId, customerDistrictId, orderId);
-            ResultSet itemIds = session.execute(query2);
-            HashSet<Integer> itemIdsSet = new HashSet<>();
-            itemIds.forEach(r -> itemIdsSet.add(r.getInt("OL_I_ID")));
-
-            // 2.2. For each item retrieved in 2.1:
-            // This for loop can be moved out of this nested for loop.
-            for (Integer itemId : itemIdsSet) {
-                // 2.2.1 Select all the orders that have the item
-                String query3 = String.format(
-                        "SELECT O_W_ID, O_D_ID, O_ID "
-                                + "FROM order_by_item "
-                                + "WHERE I_ID = %d"
-                        , itemId);
-                ResultSet potentialOrders = session.execute(query3);
-
-                // 2.2.2. For each potentially related order retrieved in 2.2.1:
-                for (Row potentialOrderRow : potentialOrders) {
-                    // Ignore the order if it belongs to the same warehouse as the given customer.
-                    if (potentialOrderRow.getInt("O_W_ID") == customerWarehouseId) {
-                        continue;
-                    }
-
-                    int potentialOrderWid = potentialOrderRow.getInt("O_W_ID");
-                    int potentialOrderDid = potentialOrderRow.getInt("O_D_ID");
-                    int potentialOrderId = potentialOrderRow.getInt("O_ID");
-
-                    // 2.2.2.1 Select all the items of the potentially related order.
-                    String query4 = String.format(
-                            "SELECT OL_I_ID "
-                                    + "FROM order_line "
-                                    + "WHERE OL_W_ID = %d AND OL_D_ID = %d AND OL_O_ID = %d"
-                            , potentialOrderWid, potentialOrderDid, potentialOrderId);
-                    ResultSet potentialOrderItems = session.execute(query4);
-
-                    // 2.2.2.2
-                    for (Row potentialOrderItemRow : potentialOrderItems) {
-                        int potentialOrderItemId = potentialOrderItemRow.getInt("OL_I_ID");
-                        if (potentialOrderItemId != itemId && itemIdsSet.contains(potentialOrderItemId)) {
-                            relatedOrders.add(
-                                    Order.builder()
-                                            .warehouseId(potentialOrderWid)
-                                            .districtId(potentialOrderDid)
-                                            .id(potentialOrderId)
-                                            .build());
-                            break;
-                        }
-                    }
-                }
-            }
+            Order order = Order.builder()
+                    .warehouseId(customerWarehouseId)
+                    .districtId(customerDistrictId)
+                    .id(orderId)
+                    .build();
+            HashSet<Order> result = getRelatedOrders(order);
+            relatedOrders.addAll(result);
         }
 
         return getCustomersOfOrders(relatedOrders);
@@ -110,6 +87,55 @@ public class RelatedCustomerTransaction extends BaseTransaction {
 
     private HashSet<Order> getRelatedOrders(Order order) {
         HashSet<Order> relatedOrders = new HashSet<>();
+
+        // 2.1. Select all the items that belong to the order.
+        ResultSet itemIds = session.execute(getItemsOfOrderQuery.bind()
+                .setInt("ol_w_id", order.getWarehouseId())
+                .setInt("ol_d_id", order.getDistrictId())
+                .setInt("ol_o_id", order.getId()));
+        HashSet<Integer> itemIdsSet = new HashSet<>();
+        itemIds.forEach(r -> itemIdsSet.add(r.getInt("OL_I_ID")));
+
+        // 2.2. For each item retrieved in 2.1:
+        // This for loop can be moved out of this nested for loop.
+        for (Integer itemId : itemIdsSet) {
+            // 2.2.1 Select all the orders that have the item
+            ResultSet potentialOrders = session.execute(getOrdersOfItemQuery.bind().setInt("i_id", itemId));
+
+            // 2.2.2. For each potentially related order retrieved in 2.2.1:
+            for (Row potentialOrderRow : potentialOrders) {
+                // Ignore the order if it belongs to the same warehouse as the given customer.
+                if (potentialOrderRow.getInt("O_W_ID") == order.getWarehouseId()) {
+                    continue;
+                }
+
+                int potentialOrderWid = potentialOrderRow.getInt("O_W_ID");
+                int potentialOrderDid = potentialOrderRow.getInt("O_D_ID");
+                int potentialOrderId = potentialOrderRow.getInt("O_ID");
+
+                // 2.2.2.1 Select all the items of the potentially related order.
+                ResultSet potentialOrderItems = session.execute(getItemsOfOrderQuery.bind()
+                        .setInt("ol_w_id", potentialOrderWid)
+                        .setInt("ol_d_id", potentialOrderDid)
+                        .setInt("ol_o_id", potentialOrderId));
+
+                // 2.2.2.2 Add the order in 2.2.2 to the result set if it contains at least one other distinct common
+                // item with the given order to the function.
+                for (Row potentialOrderItemRow : potentialOrderItems) {
+                    int potentialOrderItemId = potentialOrderItemRow.getInt("OL_I_ID");
+                    if (potentialOrderItemId != itemId && itemIdsSet.contains(potentialOrderItemId)) {
+                        relatedOrders.add(
+                                Order.builder()
+                                        .warehouseId(potentialOrderWid)
+                                        .districtId(potentialOrderDid)
+                                        .id(potentialOrderId)
+                                        .build());
+                        break;
+                    }
+                }
+            }
+        }
+
         return relatedOrders;
     }
 
@@ -117,13 +143,10 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         HashSet<Customer> customers = new HashSet<>();
 
         for (Order order : orders) {
-            String query = String.format(
-                    "SELECT O_C_ID "
-                    + "FROM orders "
-                    + "WHERE O_W_ID = %d AND O_D_ID = %d AND O_ID = %d"
-            , order.getWarehouseId(), order.getDistrictId(), order.getId());
-
-            ResultSet customerIdRow = session.execute(query);
+            ResultSet customerIdRow = session.execute(getCustomerOfOrderQuery.bind()
+                    .setInt("ol_w_id", order.getWarehouseId())
+                    .setInt("ol_d_id", order.getDistrictId())
+                    .setInt("o_id", order.getId()));
             customers.add(Customer.builder()
                     .warehouseId(order.getWarehouseId())
                     .districtId(order.getDistrictId())
