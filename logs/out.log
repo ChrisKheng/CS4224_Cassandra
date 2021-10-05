@@ -1,3 +1,0 @@
-[INFO ] 2021-09-30 20:31:33.483 [Test worker] DefaultMavenCoordinates - DataStax Java driver for Apache Cassandra(R) (com.datastax.oss:java-driver-core) version 4.13.0
-[INFO ] 2021-09-30 20:31:33.815 [s0-admin-0] Clock - Using native clock for microsecond precision
-[INFO ] 2021-09-30 20:31:33.817 [s0-admin-0] MetadataManager - [s0] No contact points provided, defaulting to /127.0.0.1:9042
