@@ -84,7 +84,9 @@ public class Driver {
                     break;
                 default:
                     numQueries--;
-                    throw new Exception("Unknown transaction types");
+                    // throw new Exception("Unknown transaction types");
+                    System.err.println("Unknown transaction types");
+                    continue;
             }
 
             int moreLines = transaction.getExtraLines();
