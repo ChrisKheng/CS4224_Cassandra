@@ -1,6 +1,6 @@
 -- Creates the keyspace.
 DROP KEYSPACE IF EXISTS wholesale_dev_a;
-CREATE KEYSPACE IF NOT EXISTS wholesale_dev_a WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};
+CREATE KEYSPACE IF NOT EXISTS wholesale_dev_a WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};
 USE wholesale_dev_a;
 
 -- Creates the tables.
@@ -119,7 +119,7 @@ CREATE TABLE stock (
 	S_DIST_09 text,
 	S_DIST_10 text,
 	S_DATA text,
-	PRIMARY KEY (S_W_ID, S_I_ID)
+	PRIMARY KEY ((S_W_ID), S_I_ID)
 );
 
 DROP TABLE IF EXISTS order_by_customer;
