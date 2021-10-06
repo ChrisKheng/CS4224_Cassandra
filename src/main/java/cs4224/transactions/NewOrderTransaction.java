@@ -13,11 +13,6 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     @Override
-    public int getExtraLines() {
-        return noOfItems;
-    }
-
-    @Override
     public void execute(String[] dataLines, String[] parameters) {
         customerId = Integer.parseInt(parameters[1]);
         warehouseId = Integer.parseInt(parameters[2]);
