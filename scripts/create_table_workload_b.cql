@@ -1,6 +1,6 @@
 -- Creates the keyspace.
 DROP KEYSPACE IF EXISTS wholesale_dev_b;
-CREATE KEYSPACE IF NOT EXISTS wholesale_dev_b WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};
+CREATE KEYSPACE IF NOT EXISTS wholesale_dev_b WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};
 USE wholesale_dev_b;
 
 -- Creates the tables.
