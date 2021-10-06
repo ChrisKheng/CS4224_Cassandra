@@ -57,9 +57,16 @@ public class Driver {
 
             String line = scanner.nextLine();
             String[] parameters = line.split(",");
+            String[] lines = {};
+
             switch (parameters[0]) {
                 case "N":
                     transaction = newOrderTransaction;
+                    int moreLines = Integer.parseInt(parameters[4]);
+                    lines = new String[moreLines];
+                    for (int i = 0; i < moreLines; i++) {
+                        lines[i] = scanner.nextLine();
+                    }
                     break;
                 case "P":
                     transaction = paymentTransaction;
@@ -89,11 +96,6 @@ public class Driver {
                     continue;
             }
 
-            int moreLines = transaction.getExtraLines();
-            String[] lines = new String[moreLines];
-            for (int i = 0; i < moreLines; i++) {
-                lines[i] = scanner.nextLine();
-            }
             lStart = System.nanoTime();
             System.out.println("\n======================================================================");
             // System.out.printf("Transaction ID: %d\n", timeRecord.size());

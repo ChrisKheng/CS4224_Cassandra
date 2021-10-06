@@ -10,9 +10,4 @@ public abstract class BaseTransaction {
     }
 
     public abstract void execute(final String[] dataLines, final String[] parameters);
-
-    // NewOrderTransaction requires reading more lines
-    public int getExtraLines() {
-        return 0;
-    }
 }
