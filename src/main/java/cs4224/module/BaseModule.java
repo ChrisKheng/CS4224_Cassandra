@@ -1,4 +1,5 @@
 package cs4224.module;
+
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -9,9 +10,6 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import cs4224.dao.*;
 import cs4224.mapper.*;
-import cs4224.dao.CustomerDao;
-import cs4224.dao.DistrictDao;
-import cs4224.dao.WarehouseDao;
 import cs4224.transactions.*;
 
 import java.net.InetSocketAddress;
@@ -95,7 +93,7 @@ public class BaseModule extends AbstractModule {
     @Provides
     @Inject
     public PaymentTransaction providePaymentTransaction(CqlSession session, WarehouseDao warehouseDao,
-                                                         DistrictDao districtDao, CustomerDao customerDao) {
+                                                        DistrictDao districtDao, CustomerDao customerDao) {
         return new PaymentTransaction(session, warehouseDao, districtDao, customerDao);
     }
 
