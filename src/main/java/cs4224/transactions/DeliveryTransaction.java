@@ -35,6 +35,7 @@ public class DeliveryTransaction extends BaseTransaction{
                     Increment C_DELIVERY_CNT
          */
 
+
         for (int districtNo = 1; districtNo <= NO_OF_DISTRICTS; districtNo++) {
             // a) Find the smallest order
 
@@ -50,6 +51,7 @@ public class DeliveryTransaction extends BaseTransaction{
             if (row != null) {
                 int orderId = row.getInt("O_ID");
                 int customerId = row.getInt("O_C_ID");
+
                 //b) Update order X O_CARRIER_ID
                 String queryB = String.format(
                         "UPDATE orders " +
@@ -58,6 +60,7 @@ public class DeliveryTransaction extends BaseTransaction{
                         carrierId, warehouseId, districtNo, orderId);
 
                 session.execute(queryB);
+
 
                 Double olAmount = 0.0;
                 List<Integer> ol_numbers = new ArrayList<>();
@@ -68,6 +71,7 @@ public class DeliveryTransaction extends BaseTransaction{
                         "FROM order_line " +
                         "WHERE OL_W_ID = %d and OL_D_ID = %d and OL_O_ID = %d",
                         warehouseId, districtNo, orderId);
+
                 List<Row> order_lines = session.execute(queryFindOrderlines).all();
 
                 for (Row ol : order_lines) {
@@ -98,6 +102,7 @@ public class DeliveryTransaction extends BaseTransaction{
                 Row cust = session.execute(queryDFindCustomer).one();
                 //System.out.printf("Customer: %d, C_BALANCE: %f, C_DELIVERY_CNT: %d \n",
                 //        customerId, cust.getBigDecimal("C_BALANCE"), cust.getInt("C_DELIVERY_CNT"));
+
 
                 Double newAmount = cust.getBigDecimal("C_BALANCE").doubleValue() + olAmount;
                 int newDelCnt = cust.getInt("C_DELIVERY_CNT") + 1;
