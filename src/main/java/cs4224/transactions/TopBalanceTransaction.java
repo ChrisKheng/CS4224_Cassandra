@@ -4,10 +4,12 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
+import cs4224.ParallelExecutor;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -75,7 +77,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                 )
         );
 
-        final Map<Integer, String> topTenCustomersNamesMapping = groupedTopTenCustomers
+        final Callable<Object> topTenCustomersNamesMappingTask = () -> groupedTopTenCustomers
                 .values()
                 .stream()
                 .flatMap(groupsOfCustomers -> groupsOfCustomers.values().stream())
@@ -114,7 +116,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                         )
                 ));
 
-        final Map<Integer, String> warehousesNamesMapping = groupedTopTenCustomers
+        final Callable<Object> warehousesNamesMappingTask = () -> groupedTopTenCustomers
                 .keySet()
                 .stream()
                 .map(warehouseId ->
@@ -130,7 +132,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                         warehouse -> warehouse.getString(CqlIdentifier.fromCql("W_NAME"))
                 ));
 
-        final Map<Integer, Map<Integer, String>> districtNamesMapping = groupedTopTenCustomers
+        final Callable<Object> districtNamesMappingTask = () -> groupedTopTenCustomers
                 .keySet()
                 .stream()
                 .flatMap(warehouseId ->
@@ -155,6 +157,16 @@ public class TopBalanceTransaction extends BaseTransaction {
                                 district -> district.getString(CqlIdentifier.fromCql("D_NAME"))
                         )
                 ));
+
+        List<Object> resultsOfTasks = new ParallelExecutor()
+                .addTask(topTenCustomersNamesMappingTask)
+                .addTask(warehousesNamesMappingTask)
+                .addTask(districtNamesMappingTask)
+                .execute();
+
+        final Map<Integer, String> topTenCustomersNamesMapping = (Map<Integer, String>) resultsOfTasks.get(0);
+        final Map<Integer, String> warehousesNamesMapping = (Map<Integer, String>) resultsOfTasks.get(1);
+        final Map<Integer, Map<Integer, String>> districtNamesMapping = (Map<Integer, Map<Integer, String>>) resultsOfTasks.get(2);
 
         topTenCustomers.forEach(customer ->
                 System.out.printf(
