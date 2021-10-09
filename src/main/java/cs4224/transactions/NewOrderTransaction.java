@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.HashSet;
 
 public class NewOrderTransaction extends BaseTransaction {
     private int customerId;
@@ -59,7 +60,8 @@ public class NewOrderTransaction extends BaseTransaction {
         CreateNewOrder(itemnos, supplierwhse, qty);
 
     }
-        private void CreateNewOrder (List < Integer > itemnos, List < Integer > supplierwhse, List < Integer > qty){
+        private void CreateNewOrder (List < Integer > itemnos, List < Integer > supplierwhse, List < Integer > qty)
+        {
             ArrayList<Double> adjusted_qty = new ArrayList<>();
             ArrayList<Double> item_amt = new ArrayList<>();
             ArrayList<String> item_name = new ArrayList<>();
@@ -74,6 +76,28 @@ public class NewOrderTransaction extends BaseTransaction {
             double district_tax = res.getBigDecimal("D_TAX").doubleValue();
             String increase_order_num_query = String.format("UPDATE district SET D_NEXT_O_ID = D_NEXT_O_ID + 1 WHERE D_W_ID = %d AND D_ID = %d", warehouseId, districtId);
             session.execute(increase_order_num_query);
+
+            int all_local = 1;
+            for(Integer integer : supplierwhse)
+            {
+                if (integer != warehouseId)
+                {
+                    all_local = 0;
+                    break;
+                }
+            }
+
+            Date current = new Date();
+            String ordertime = formatter.format(current);
+
+            double totalamt = 0;
+            for (int i=0; i <noOfItems; i++)
+            {
+                String check_stock = String.format("SELECT S_QUANTITY from stock WHERE S_W_ID = %d AND S_I_ID = %d", supplierwhse.get(i),itemnos.get(i));
+                Row stock_info = session.execute(check_stock).all().get(0);
+
+
+            }
         }
 
        // System.out.println("Running New Order Transaction with C_ID= %d, W_ID=%d, D_ID=%d, N=%d \n", customerId, warehouseId, districtId, noOfItems);
