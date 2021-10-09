@@ -3,15 +3,14 @@ package cs4224.transactions;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
-import jnr.ffi.annotations.In;
-import cs4224.entities.Customer;
-import cs4224.entities.Order;
-import cs4224.entities.District;
-import cs4224.entities.Warehouse;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.session.Session;
+
 
 import java.math.BigDecimal;
 import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -19,17 +18,41 @@ import java.util.List;
 import java.util.HashSet;
 
 public class NewOrderTransaction extends BaseTransaction {
-    private int customerId;
+
+    private Session session;
+    private PreparedStatement selectwhse;
+    private PreparedStatement selectdistrict;
+    private PreparedStatement selectcustomer;
+    private PreparedStatement selectstock;
+    private PreparedStatement selectitem;
+
+    private PreparedStatement updatedistrictnextorderID;
+    private PreparedStatement updateCustomerOrder;
+    private  PreparedStatement updateStock;
+
+    private PreparedStatement insertOrderLine;
+    private PreparedStatement insertOrderById;
+
+   /** private int customerId;
     private int warehouseId;
     private int districtId;
-    private int noOfItems;
+    private int noOfItems;**/
+
+   NewOrderTransaction(CqlSession session)
+   {
+       super(session);
+
+       this.session = session;
+       this.selectwhse = session.prepare("SELECT W_TAX FROM wholesale_dev_a.warehouse WHERE W_ID = ?");
+
+   }
 
     private static final Format formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
 
-    public NewOrderTransaction(CqlSession session) {
+   /*** public NewOrderTransaction(CqlSession session) {
         super(session);
-    }
+    }***/
 
     @Override
     public int getExtraLines() {
