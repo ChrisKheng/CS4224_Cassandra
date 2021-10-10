@@ -6,6 +6,7 @@ import cs4224.entities.*;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,9 +41,9 @@ public class PopularItemTransaction extends BaseTransaction {
                 nextOrderId - L, nextOrderId).all().stream()
                 .map(Order::map).collect(Collectors.toList());
 
-        final Map<Order, BigDecimal> orderQuantity = new HashMap<>(); // Order -> max_quantity
-        final Map<Integer, List<Integer>> orderItems = new HashMap<>(); // OrderId -> items
-        final Map<Integer, Customer> customerMap = new HashMap<>(); // CustomerId -> CustomerName
+        final Map<Order, BigDecimal> orderQuantity = new ConcurrentHashMap<>(); // Order -> max_quantity
+        final Map<Integer, List<Integer>> orderItems = new ConcurrentHashMap<>(); // OrderId -> items
+        final Map<Integer, Customer> customerMap = new ConcurrentHashMap<>(); // CustomerId -> CustomerName
 
         orders.parallelStream().forEach(order -> {
             final BigDecimal max_quantity = getOrderLineMaxQuantity(warehouseId, districtId, order);
@@ -56,8 +57,8 @@ public class PopularItemTransaction extends BaseTransaction {
 
 
         final Set<Integer> items = new HashSet<>(); // Set of all Items in last L orders
-        final Map<Integer, Long> itemNumOrders = new HashMap<>(); // Item -> Num of Orders
-        final Map<Integer, String> itemName = new HashMap<>(); // Item -> Item Name
+        final Map<Integer, Long> itemNumOrders = new ConcurrentHashMap<>(); // Item -> Num of Orders
+        final Map<Integer, String> itemName = new ConcurrentHashMap<>(); // Item -> Item Name
 
         orderItems.values().forEach(items::addAll);
         final List<Integer> orderIds = orders.stream()
