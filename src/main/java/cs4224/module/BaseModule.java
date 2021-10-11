@@ -13,6 +13,8 @@ import cs4224.mapper.*;
 import cs4224.transactions.*;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static cs4224.utils.Constants.*;
 
@@ -91,10 +93,17 @@ public class BaseModule extends AbstractModule {
     }
 
     @Provides
+    @Singleton
+    public ExecutorService provideExecutorService() {
+        return Executors.newFixedThreadPool(5);
+    }
+
+    @Provides
     @Inject
-    public PaymentTransaction providePaymentTransaction(CqlSession session, WarehouseDao warehouseDao,
-                                                        DistrictDao districtDao, CustomerDao customerDao) {
-        return new PaymentTransaction(session, warehouseDao, districtDao, customerDao);
+    public PaymentTransaction providePaymentTransaction(CqlSession session, ExecutorService executorService,
+                                                        WarehouseDao warehouseDao, DistrictDao districtDao,
+                                                        CustomerDao customerDao) {
+        return new PaymentTransaction(session, executorService, warehouseDao, districtDao, customerDao);
     }
 
     @Provides
@@ -133,8 +142,8 @@ public class BaseModule extends AbstractModule {
 
     @Provides
     @Inject
-    public TopBalanceTransaction provideTopBalanceTransaction(CqlSession session) {
-        return new TopBalanceTransaction(session);
+    public TopBalanceTransaction provideTopBalanceTransaction(CqlSession session, ExecutorService executorService) {
+        return new TopBalanceTransaction(session, executorService);
     }
 
     @Provides

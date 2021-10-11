@@ -10,18 +10,21 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class TopBalanceTransaction extends BaseTransaction {
 
+    private final ExecutorService executorService;
     private final PreparedStatement getBalancesOfCustomersQuery;
     private final PreparedStatement getCustomersQuery;
     private final PreparedStatement getWarehouseQuery;
     private final PreparedStatement getDistrictQuery;
 
-    public TopBalanceTransaction(CqlSession session) {
+    public TopBalanceTransaction(CqlSession session, ExecutorService executorService) {
         super(session);
+        this.executorService = executorService;
 
         getBalancesOfCustomersQuery = session.prepare(
                 "SELECT C_W_ID, C_BALANCE, C_D_ID, C_ID " +
@@ -158,7 +161,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                         )
                 ));
 
-        List<Object> resultsOfTasks = new ParallelExecutor()
+        List<Object> resultsOfTasks = new ParallelExecutor(executorService)
                 .addTask(topTenCustomersNamesMappingTask)
                 .addTask(warehousesNamesMappingTask)
                 .addTask(districtNamesMappingTask)
