@@ -9,7 +9,7 @@ public class InputParser {
     private HelpFormatter helpFormatter = new HelpFormatter();
 
     public InputParser() {
-        Option fileName = new Option("f", "filename", true, "Name of query file");
+        Option fileName = new Option("f", "fileName", true, "Name of query file");
         fileName.setRequired(true);
         options.addOption(fileName);
 
@@ -23,6 +23,9 @@ public class InputParser {
 
         Option port = new Option("p", "port", true, "Port of cassandra cluster");
         options.addOption(port);
+
+        Option logFileName = new Option("l", "logFileName", true, "Name of log file");
+        options.addOption(logFileName);
     }
 
     public CommandLine parse(String[] args) {

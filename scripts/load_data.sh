@@ -5,20 +5,23 @@ wget http://www.comp.nus.edu.sg/~cs4224/project_files.zip
 
 unzip project_files.zip
 
-cqlsh -f create_table_workload_a.cql
-cqlsh -f create_table_workload_b.cql
+cqlsh --request-timeout=3600 -f create_table_workload_a.cql
+cqlsh --request-timeout=3600 -f create_table_workload_b.cql
 
 for folder in data_files_A data_files_B
 do
-  # For order_line
-  awk -F "," '{if ($6=="null") {$6=""}; OFS=","; print}' project_files/${folder}/order-line.csv > project_files/${folder}/order-line-clean.csv
+  # For order_line, cassandra would yell at us if a null value is given for timestamp field
+  awk -F "," '{if ($6 == "null") {$6 = ""}; OFS = ","; print}' project_files/${folder}/order-line.csv > project_files/${folder}/order-line-clean.csv
   
   # For order_by_customer
   awk -F "," '{OFS=","; print $1, $2, $4, $8, $3}' project_files/${folder}/order.csv > project_files/${folder}/order-by-customer.csv
   
   # For order_by_item
   awk -F "," '{OFS=","; print $5, $1, $2, $3}' project_files/${folder}/order-line.csv | uniq > project_files/${folder}/order-by-item.csv
+
+  # For order table, replace o_carrier_id with -1 if it's null
+  awk -F "," '{if ($5 == "null") {$5 = "-1"}; OFS=","; print}' project_files/${folder}/order.csv > project_files/${folder}/order-clean.csv
 done
 
-cqlsh -f load_data_workload_a.cql
-cqlsh -f load_data_workload_b.cql
+cqlsh --request-timeout=3600 -f load_data_workload_a.cql
+cqlsh --request-timeout=3600 -f load_data_workload_b.cql

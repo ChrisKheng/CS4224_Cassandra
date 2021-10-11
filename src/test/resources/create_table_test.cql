@@ -119,7 +119,7 @@ CREATE TABLE stock (
 	S_DIST_09 text,
 	S_DIST_10 text,
 	S_DATA text,
-	PRIMARY KEY ((S_W_ID, S_I_ID))
+	PRIMARY KEY ((S_W_ID), S_I_ID)
 );
 
 DROP TABLE IF EXISTS order_by_customer;
