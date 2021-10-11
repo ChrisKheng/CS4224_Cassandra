@@ -3,6 +3,7 @@ package cs4224;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.inject.Inject;
 import cs4224.transactions.*;
+import cs4224.utils.Statistics;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -40,6 +41,8 @@ public class Driver {
         this.relatedCustomerTransaction = relatedCustomerTransaction;
     }
 
+
+
     void runQueries(String queryFilename) throws Exception {
         File queryTxt = new File(queryFilename);
 
@@ -49,7 +52,7 @@ public class Driver {
         // TODO: Record the timings and pass to Statistics.
         List<Long> timeRecord = new ArrayList<>();
 
-        long start, end, lStart, lEnd, lapse;
+        long start, end, lStart, lEnd, lapse, totalLapse;
 
         start = System.nanoTime();
         while (scanner.hasNext()) {
@@ -103,10 +106,15 @@ public class Driver {
             transaction.execute(lines, parameters);
 
             lEnd = System.nanoTime();
-            lapse = lEnd - lStart;
-            System.out.printf("Time taken: %d\n", TimeUnit.MILLISECONDS.convert(lapse, TimeUnit.NANOSECONDS));
+            lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
+            timeRecord.add(lapse);
+            System.out.printf("Time taken: %d\n", lapse);
             System.out.println("======================================================================");
         }
+        end = System.nanoTime();
+        totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
+        Statistics.computeTimeStatistics(timeRecord, totalLapse);
         session.close();
+        scanner.close();
     }
 }
