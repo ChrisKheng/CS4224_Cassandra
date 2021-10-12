@@ -9,12 +9,14 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class Driver {
     public static long numQueries = 0;
 
     private final CqlSession session;
+    private final ExecutorService executorService;
     private final NewOrderTransaction newOrderTransaction;
     private final PaymentTransaction paymentTransaction;
     private final DeliveryTransaction deliveryTransaction;
@@ -26,11 +28,13 @@ public class Driver {
 
 
     @Inject
-    public Driver(CqlSession session, NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
-                  DeliveryTransaction deliveryTransaction, OrderStatusTransaction orderStatusTransaction,
-                  StockLevelTransaction stockLevelTransaction, PopularItemTransaction popularItemTransaction,
-                  TopBalanceTransaction topBalanceTransaction, RelatedCustomerTransaction relatedCustomerTransaction) {
+    public Driver(CqlSession session, ExecutorService executorService, NewOrderTransaction newOrderTransaction,
+                  PaymentTransaction paymentTransaction, DeliveryTransaction deliveryTransaction,
+                  OrderStatusTransaction orderStatusTransaction, StockLevelTransaction stockLevelTransaction,
+                  PopularItemTransaction popularItemTransaction, TopBalanceTransaction topBalanceTransaction,
+                  RelatedCustomerTransaction relatedCustomerTransaction) {
         this.session = session;
+        this.executorService = executorService;
         this.newOrderTransaction = newOrderTransaction;
         this.paymentTransaction = paymentTransaction;
         this.deliveryTransaction = deliveryTransaction;
@@ -60,7 +64,7 @@ public class Driver {
 
             String line = scanner.nextLine();
             String[] parameters = line.split(",");
-            String[] lines = {};
+            String[] lines = new String[0];
 
             switch (parameters[0]) {
                 case "N":
@@ -104,7 +108,6 @@ public class Driver {
             // System.out.printf("Transaction ID: %d\n", timeRecord.size());
             System.out.printf("Transaction ID: %d\n", numQueries);
             transaction.execute(lines, parameters);
-
             lEnd = System.nanoTime();
             lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
             timeRecord.add(lapse);
@@ -116,5 +119,6 @@ public class Driver {
         Statistics.computeTimeStatistics(timeRecord, totalLapse);
         session.close();
         scanner.close();
+        executorService.shutdown();
     }
 }

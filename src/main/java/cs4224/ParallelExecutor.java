@@ -6,15 +6,19 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class ParallelExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(ParallelExecutor.class);
+    final ExecutorService executorService;
     List<Callable<Object>> tasks;
 
-
-    public ParallelExecutor() {
+    public ParallelExecutor(ExecutorService executorService) {
+        this.executorService = executorService;
         this.tasks = new ArrayList<>();
     }
 
@@ -25,19 +29,17 @@ public class ParallelExecutor {
 
     @SneakyThrows
     public List<Object> execute() {
-        final ExecutorService executorService = Executors.newFixedThreadPool(5);
         List<Future<Object>> futures = executorService.invokeAll(tasks);
         List<Object> taskResult = futures.stream().map(future -> {
             try {
                 return future.get();
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("Error while executing parallel tasks: ", e);
+                return new Object();
             }
-            return null;
         }).collect(Collectors.toList());
 
         this.tasks = new ArrayList<>();
-        executorService.shutdown();
         return taskResult;
     }
 }
