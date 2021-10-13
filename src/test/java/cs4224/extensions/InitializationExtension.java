@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.GLOBAL;
 
@@ -19,13 +21,14 @@ import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.GLOBAL;
 public class InitializationExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
     private static boolean started = false;
     public static CqlSession session;
+    public static ExecutorService executorService;
 
     @Override
     public void beforeAll(ExtensionContext context) {
         if (!started) {
             started = true;
             context.getRoot().getStore(GLOBAL).put("InitializationExtension", this);
-
+            executorService = Executors.newFixedThreadPool(1);
             try {
                 session = CqlSession.builder()
                         .withKeyspace(CqlIdentifier.fromCql("wholesale_test"))
@@ -51,6 +54,7 @@ public class InitializationExtension implements BeforeAllCallback, ExtensionCont
     @Override
     public void close() {
         session.close();
+        executorService.shutdown();
         System.out.println("Complete all tests!");
     }
 }

@@ -10,20 +10,32 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class TopBalanceTransaction extends BaseTransaction {
 
+    private final ExecutorService executorService;
+    private final Map<Integer, String> allWarehousesNamesMapping;
     private final PreparedStatement getBalancesOfCustomersQuery;
     private final PreparedStatement getCustomersQuery;
-    private final PreparedStatement getWarehouseQuery;
     private final PreparedStatement getDistrictQuery;
 
-    public TopBalanceTransaction(CqlSession session) {
+    public TopBalanceTransaction(CqlSession session, ExecutorService executorService) {
         super(session);
 
-        getBalancesOfCustomersQuery = session.prepare(
+        this.executorService = executorService;
+
+        this.allWarehousesNamesMapping =
+                session.execute("SELECT W_ID, W_NAME FROM warehouse")
+                        .all()
+                        .stream()
+                        .collect(Collectors.toMap(
+                                warehouse -> warehouse.getInt(CqlIdentifier.fromCql("W_ID")),
+                                warehouse -> warehouse.getString(CqlIdentifier.fromCql("W_NAME"))
+                        ));
+
+        this.getBalancesOfCustomersQuery = session.prepare(
                 "SELECT C_W_ID, C_BALANCE, C_D_ID, C_ID " +
                         "FROM customer_balance " +
                         "WHERE C_W_ID = :c_w_id " +
@@ -31,19 +43,13 @@ public class TopBalanceTransaction extends BaseTransaction {
                         "LIMIT :n"
         );
 
-        getCustomersQuery = session.prepare(
+        this.getCustomersQuery = session.prepare(
                 "SELECT C_ID, C_FIRST, C_MIDDLE, C_LAST " +
                         "FROM customer " +
                         "WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id AND C_ID IN :c_ids"
         );
 
-        getWarehouseQuery = session.prepare(
-                "SELECT W_ID, W_NAME " +
-                        "FROM warehouse " +
-                        "WHERE W_ID = :w_id"
-        );
-
-        getDistrictQuery = session.prepare(
+        this.getDistrictQuery = session.prepare(
                 "SELECT D_W_ID, D_ID, D_NAME " +
                         "FROM district " +
                         "WHERE D_W_ID = :d_w_id AND D_ID = :d_id"
@@ -52,10 +58,12 @@ public class TopBalanceTransaction extends BaseTransaction {
 
     @Override
     public void execute(String[] dataLines, String[] parameters) {
-        final List<Row> topTenCustomers = IntStream.rangeClosed(1, 10).boxed()
+        final List<Row> topTenCustomers = this.allWarehousesNamesMapping
+                .keySet()
+                .stream()
                 .map(warehouseId ->
                         session.execute(
-                                getBalancesOfCustomersQuery
+                                this.getBalancesOfCustomersQuery
                                     .boundStatementBuilder()
                                     .setInt("c_w_id", warehouseId)
                                     .setInt("n", 10)
@@ -83,7 +91,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                 .flatMap(groupsOfCustomers -> groupsOfCustomers.values().stream())
                 .flatMap(groupOfCustomers ->
                         session.execute(
-                                getCustomersQuery
+                                this.getCustomersQuery
                                         .boundStatementBuilder()
                                         .setInt(
                                                 "c_w_id",
@@ -116,22 +124,6 @@ public class TopBalanceTransaction extends BaseTransaction {
                         )
                 ));
 
-        final Callable<Object> warehousesNamesMappingTask = () -> groupedTopTenCustomers
-                .keySet()
-                .stream()
-                .map(warehouseId ->
-                        session.execute(
-                                getWarehouseQuery
-                                        .boundStatementBuilder()
-                                        .setInt(CqlIdentifier.fromCql("w_id"), warehouseId)
-                                        .build()
-                        ).one()
-                )
-                .collect(Collectors.toMap(
-                        warehouse -> warehouse.getInt(CqlIdentifier.fromCql("W_ID")),
-                        warehouse -> warehouse.getString(CqlIdentifier.fromCql("W_NAME"))
-                ));
-
         final Callable<Object> districtNamesMappingTask = () -> groupedTopTenCustomers
                 .keySet()
                 .stream()
@@ -142,7 +134,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                                 .stream()
                                 .map(districtId ->
                                         session.execute(
-                                                getDistrictQuery
+                                                this.getDistrictQuery
                                                         .boundStatementBuilder()
                                                         .setInt(CqlIdentifier.fromCql("d_w_id"), warehouseId)
                                                         .setInt(CqlIdentifier.fromCql("d_id"), districtId)
@@ -158,15 +150,13 @@ public class TopBalanceTransaction extends BaseTransaction {
                         )
                 ));
 
-        List<Object> resultsOfTasks = new ParallelExecutor()
+        List<Object> resultsOfTasks = new ParallelExecutor(this.executorService)
                 .addTask(topTenCustomersNamesMappingTask)
-                .addTask(warehousesNamesMappingTask)
                 .addTask(districtNamesMappingTask)
                 .execute();
 
         final Map<Integer, String> topTenCustomersNamesMapping = (Map<Integer, String>) resultsOfTasks.get(0);
-        final Map<Integer, String> warehousesNamesMapping = (Map<Integer, String>) resultsOfTasks.get(1);
-        final Map<Integer, Map<Integer, String>> districtNamesMapping = (Map<Integer, Map<Integer, String>>) resultsOfTasks.get(2);
+        final Map<Integer, Map<Integer, String>> districtNamesMapping = (Map<Integer, Map<Integer, String>>) resultsOfTasks.get(1);
 
         topTenCustomers.forEach(customer ->
                 System.out.printf(
@@ -176,7 +166,7 @@ public class TopBalanceTransaction extends BaseTransaction {
                                 "District name of customer: %s%n%n",
                         topTenCustomersNamesMapping.get(customer.getInt(CqlIdentifier.fromCql("C_ID"))),
                         customer.getBigDecimal(CqlIdentifier.fromCql("C_BALANCE")),
-                        warehousesNamesMapping.get(customer.getInt(CqlIdentifier.fromCql("C_W_ID"))),
+                        this.allWarehousesNamesMapping.get(customer.getInt(CqlIdentifier.fromCql("C_W_ID"))),
                         districtNamesMapping
                                 .get(customer.getInt(CqlIdentifier.fromCql("C_W_ID")))
                                 .get(customer.getInt(CqlIdentifier.fromCql("C_D_ID")))

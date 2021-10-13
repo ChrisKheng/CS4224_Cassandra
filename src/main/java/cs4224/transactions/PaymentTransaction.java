@@ -11,15 +11,18 @@ import cs4224.entities.Warehouse;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class PaymentTransaction extends BaseTransaction {
+    private final ExecutorService executorService;
     private final WarehouseDao warehouseDao;
     private final DistrictDao districtDao;
     private final CustomerDao customerDao;
 
-    public PaymentTransaction(CqlSession session, WarehouseDao warehouseDao,
-                              DistrictDao districtDao, CustomerDao customerDao) {
+    public PaymentTransaction(CqlSession session, ExecutorService executorService,
+                              WarehouseDao warehouseDao, DistrictDao districtDao, CustomerDao customerDao) {
         super(session);
+        this.executorService = executorService;
         this.warehouseDao = warehouseDao;
         this.districtDao = districtDao;
         this.customerDao = customerDao;
@@ -41,7 +44,7 @@ public class PaymentTransaction extends BaseTransaction {
 
     private List<Object> getEntities(final int customerWarehouseId, final int customerDistrictId,
                                      final int customerId) {
-        final ParallelExecutor getEntitiesExecutor = new ParallelExecutor()
+        final ParallelExecutor getEntitiesExecutor = new ParallelExecutor(executorService)
                 .addTask(() -> Warehouse.map(warehouseDao.getById(customerWarehouseId)))
                 .addTask(() -> District.map(districtDao.getById(customerWarehouseId, customerDistrictId)))
                 .addTask(() -> Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId)));
@@ -50,7 +53,7 @@ public class PaymentTransaction extends BaseTransaction {
 
     private List<Object> updateEntities(final List<Object> entities, final int customerWarehouseId,
                                         final int customerDistrictId, final int customerId, final double paymentAmount) {
-        final ParallelExecutor parallelExecutor = new ParallelExecutor()
+        final ParallelExecutor parallelExecutor = new ParallelExecutor(executorService)
                 .addTask(() -> updateWarehouse((Warehouse) entities.get(0), customerWarehouseId, customerDistrictId))
                 .addTask(() -> updateDistrict((District) entities.get(1), customerWarehouseId, customerDistrictId,
                         paymentAmount))
