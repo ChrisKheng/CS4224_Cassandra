@@ -1,6 +1,5 @@
 package cs4224;
 
-import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.inject.Inject;
 import cs4224.transactions.*;
 import cs4224.utils.Statistics;
@@ -9,14 +8,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class Driver {
     public static long numQueries = 0;
 
-    private final CqlSession session;
-    private final ExecutorService executorService;
     private final NewOrderTransaction newOrderTransaction;
     private final PaymentTransaction paymentTransaction;
     private final DeliveryTransaction deliveryTransaction;
@@ -28,13 +24,10 @@ public class Driver {
 
 
     @Inject
-    public Driver(CqlSession session, ExecutorService executorService, NewOrderTransaction newOrderTransaction,
-                  PaymentTransaction paymentTransaction, DeliveryTransaction deliveryTransaction,
-                  OrderStatusTransaction orderStatusTransaction, StockLevelTransaction stockLevelTransaction,
-                  PopularItemTransaction popularItemTransaction, TopBalanceTransaction topBalanceTransaction,
-                  RelatedCustomerTransaction relatedCustomerTransaction) {
-        this.session = session;
-        this.executorService = executorService;
+    public Driver(NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
+                  DeliveryTransaction deliveryTransaction, OrderStatusTransaction orderStatusTransaction,
+                  StockLevelTransaction stockLevelTransaction, PopularItemTransaction popularItemTransaction,
+                  TopBalanceTransaction topBalanceTransaction, RelatedCustomerTransaction relatedCustomerTransaction) {
         this.newOrderTransaction = newOrderTransaction;
         this.paymentTransaction = paymentTransaction;
         this.deliveryTransaction = deliveryTransaction;
@@ -117,8 +110,6 @@ public class Driver {
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
         Statistics.computeTimeStatistics(timeRecord, totalLapse);
-        session.close();
         scanner.close();
-        executorService.shutdown();
     }
 }

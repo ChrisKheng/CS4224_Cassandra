@@ -93,6 +93,12 @@ public class BaseModule extends AbstractModule {
     }
 
     @Provides
+    @Inject
+    public StockDao provideStockDao(CqlSession session) {
+        return new StockMapperBuilder(session).build().dao(STOCK_TABLE);
+    }
+
+    @Provides
     @Singleton
     public ExecutorService provideExecutorService() {
         return Executors.newFixedThreadPool(5);

@@ -20,24 +20,29 @@ import java.math.BigDecimal;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Entity
-@CqlName("order_line")
-public class OrderLine {
+@CqlName("Stock")
+public class Stock {
 
-    @CqlName("ol_i_id")
-    private Integer itemId;
-
-    @CqlName("ol_quantity")
+    @CqlName("s_quantity")
     private BigDecimal quantity;
 
-    @CqlName("ol_amount")
-    private BigDecimal amount;
+    @CqlName("s_ytd")
+    private BigDecimal ytdQuantity;
 
-    public static OrderLine map(Row row) {
+    @CqlName("s_order_cnt")
+    private Integer orderCount;
+
+    @CqlName("s_remote_cnt")
+    private Integer remoteOrderCount;
+
+    @SuppressWarnings("ConstantConditions")
+    public static Stock map(Row row) {
         final CQLMapper cqlMapper = new CQLMapper();
-        final OrderLine orderLine = new OrderLine();
-        orderLine.setItemId(cqlMapper.mapInt(row, "ol_i_id"));
-        orderLine.setQuantity(cqlMapper.mapBigDecimal(row, "ol_quantity"));
-        orderLine.setAmount(cqlMapper.mapBigDecimal(row, "ol_amount"));
-        return orderLine;
+        final Stock stock = new Stock();
+        stock.setQuantity(cqlMapper.mapBigDecimal(row, "s_quantity"));
+        stock.setYtdQuantity(cqlMapper.mapBigDecimal(row, "s_ytd"));
+        stock.setOrderCount(cqlMapper.mapInt(row, "s_order_cnt"));
+        stock.setRemoteOrderCount(cqlMapper.mapInt(row, "s_remote_cnt"));
+        return stock;
     }
 }
