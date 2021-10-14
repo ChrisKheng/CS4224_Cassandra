@@ -1,9 +1,12 @@
 package cs4224;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import cs4224.module.BaseModule;
 import org.apache.commons.cli.CommandLine;
 import org.apache.logging.log4j.LogManager;
+
+import java.util.concurrent.ExecutorService;
 
 public class Main {
     public static void main(String[] args) {
@@ -26,18 +29,33 @@ public class Main {
             throw new IllegalArgumentException("Incorrect arguments");
         }
 
-        String logFileName = parsedArguments.hasOption("l") ? parsedArguments.getOptionValue("l") : "";
-        setLogFileName(logFileName);
-
+        String task = parsedArguments.getOptionValue("t");
         String keyspace = parsedArguments.getOptionValue("k");
         String ip = parsedArguments.hasOption("i") ? parsedArguments.getOptionValue("i") : "";
         int port = parsedArguments.hasOption("p") ? Integer.parseInt(parsedArguments.getOptionValue("p")) : -1;
-
         Injector injector = Guice.createInjector(new BaseModule(keyspace, ip, port));
-        final Driver driver = injector.getInstance(Driver.class);
 
-        String fileName = parsedArguments.getOptionValue("f");
-        driver.runQueries(fileName);
+        switch (task.toLowerCase()) {
+            case "transaction":
+                String logFileName = parsedArguments.hasOption("l") ? parsedArguments.getOptionValue("l") : "";
+                setLogFileName(logFileName);
+                String fileName = parsedArguments.getOptionValue("f");
+                final Driver driver = injector.getInstance(Driver.class);
+                driver.runQueries(fileName);
+                break;
+            case "dbstate":
+                final DBState dbState = injector.getInstance(DBState.class);
+                dbState.save();
+                break;
+            default:
+                // throw new Exception("Unknown transaction types");
+                System.err.println("Unknown task type");
+        }
+
+        final CqlSession cqlSession = injector.getInstance(CqlSession.class);
+        final ExecutorService executorService = injector.getInstance(ExecutorService.class);
+        cqlSession.close();
+        executorService.shutdown();
     }
 
     private static void setLogFileName(String name) {

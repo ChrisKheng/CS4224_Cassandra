@@ -7,13 +7,18 @@ import com.datastax.oss.driver.api.mapper.annotations.Entity;
 import com.datastax.oss.driver.api.mapper.annotations.PartitionKey;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import cs4224.mapper.CQLMapper;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
 
 @Data
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -77,23 +82,32 @@ public class Customer {
     private BigDecimal balance;
 
     @CqlName("c_ytd_payment")
-    @ToString.Exclude
     private Float paymentYTD;
 
     @CqlName("c_payment_cnt")
-    @ToString.Exclude
     private Integer numPayments;
 
     @CqlName("c_delivery_cnt")
-    @ToString.Exclude
     private Integer numDeliveries;
 
     @CqlName("c_data")
-    @ToString.Exclude
     private String miscData;
 
     public String toSpecifier() {
         return String.format("(%d, %d, %d)", warehouseId, districtId, id);
+    }
+
+    public String toName() {
+        return String.format(" Name (First Middle Last) : (%s %s %s)", firstName, middleName, lastName);
+    }
+
+    public String toAddress() {
+        return String.format(" Address (street_1, street_2, city, state, zip) : (%s, %s, %s, %s, %s)", street1, street2, city, state, zip);
+    }
+
+    public String toOtherInfo() {
+        return String.format(" Phone: %s \n Since: %s \n Credit: %s \n Credit Limit:%f \n Discount: %f \n Balance: %f",
+                phone, entryCreateDateTime, creditStatus, creditLimit, discountRate, balance);
     }
 
     public static Customer map(Row row) {

@@ -35,7 +35,9 @@ dependencies {
             'com.datastax.oss:java-driver-query-builder:4.13.0',
             'com.datastax.oss:java-driver-mapper-runtime:4.13.0',
             'commons-cli:commons-cli:1.4',
-            'com.google.inject:guice:5.0.1'
+            'com.google.inject:guice:5.0.1',
+            'com.opencsv:opencsv:4.1'
+
     )
 
     compileOnly(

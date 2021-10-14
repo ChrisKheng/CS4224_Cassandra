@@ -35,7 +35,7 @@ public class ParallelExecutor {
                 return future.get();
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("Error while executing parallel tasks: ", e);
-                return new Object();
+                throw new RuntimeException(e);     // For debugging purpose
             }
         }).collect(Collectors.toList());
 

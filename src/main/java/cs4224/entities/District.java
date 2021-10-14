@@ -54,8 +54,8 @@ public class District {
     @CqlName("d_next_o_id")
     private Integer nextOrderId;
 
-    public String addressToString() {
-        return String.format("street1=%s, street2=%s, city=%s, state=%s, zip=%s",
+    public String toAddress() {
+        return String.format(" Address (street_1, street_2, city, state, zip) : (%s, %s, %s, %s, %s)",
                 street1, street2, city, state, zip);
     }
 
