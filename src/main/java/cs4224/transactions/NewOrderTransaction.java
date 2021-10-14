@@ -7,7 +7,6 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
-import org.checkerframework.checker.units.qual.A;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -31,6 +30,8 @@ public class NewOrderTransaction extends BaseTransaction {
     PreparedStatement updateStockQuery;
     PreparedStatement getItemInfoQuery;
     PreparedStatement createOrderLineQuery;
+    PreparedStatement createOrderByItemQuery;
+    PreparedStatement createOrderByCustomerQuery;
     PreparedStatement getWarehouseInfoQuery;
     PreparedStatement getCustomerInfoQuery;
 
@@ -134,6 +135,16 @@ public class NewOrderTransaction extends BaseTransaction {
                         ":ol_quantity, : ol_amount, :ol_delivery_d, :ol_dist_info)"
         );
 
+        createOrderByCustomerQuery = session.prepare(
+                "INSERT INTO ORDER_BY_CUSTOMER (C_W_ID, C_D_ID, C_ID, O_ENTRY_D, O_ID) " +
+                        "VALUES (:c_w_id, :c_d_id, :c_id, :o_entry_d, :o_id)"
+        );
+
+        createOrderByItemQuery = session.prepare(
+                "INSERT INTO ORDER_BY_ITEM (I_ID, O_W_ID, O_D_ID, O_ID) " +
+                        "VALUES (:i_id, :o_w_id, :o_d_id, :o_id)"
+        );
+
         getWarehouseInfoQuery = session.prepare(
                 "SELECT W_TAX " +
                         "FROM WAREHOUSE " +
@@ -155,15 +166,15 @@ public class NewOrderTransaction extends BaseTransaction {
         noOfItems = Integer.parseInt(parameters[4]);
 
         DistrictInfo nextOidResult = getAndUpdateDistrictNextOid();
-        Integer orderId = nextOidResult.nextOid;
+        Integer oid = nextOidResult.nextOid;
 
         List<NewOrderLine> newOrderLines = parseNewOrderLines(dataLines);
         Instant now = Instant.now();
-        createNewOrder(orderId, newOrderLines, now);
+        processNewOrder(oid, now, newOrderLines);
 
         List<ItemResultInfo> orderLinesResult = IntStream.range(0, newOrderLines.size())
                 .parallel()
-                .mapToObj(i -> processNewOrderLine(newOrderLines.get(i), orderId, i+1))
+                .mapToObj(i -> processNewOrderLine(newOrderLines.get(i), oid, i+1))
                 .collect(Collectors.toList());
 
         BigDecimal districtTax = nextOidResult.tax;
@@ -180,7 +191,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .multiply(totalTax)
                 .multiply(percentAfterDiscount);
 
-        printSummary(new NewOrderSummary(customerInfo, warehouseTax, districtTax, now, orderId, totalAmount, orderLinesResult));
+        printSummary(new NewOrderSummary(customerInfo, warehouseTax, districtTax, now, oid, totalAmount, orderLinesResult));
     }
 
     private DistrictInfo getAndUpdateDistrictNextOid() {
@@ -188,6 +199,8 @@ public class NewOrderTransaction extends BaseTransaction {
         int dNextOid = -1;
         BigDecimal dTax = new BigDecimal(-1);
 
+        // Spin loop is needed as the update query may fail if there are other queries that are updating the same row
+        // at the same time.
         while (!isIncrementSuccessful) {
             ResultSet resultSet = session.execute(getDNextOidQuery.bind()
                     .setInt("d_w_id", warehouseId)
@@ -207,6 +220,16 @@ public class NewOrderTransaction extends BaseTransaction {
         }
 
         return new DistrictInfo(dNextOid, dTax);
+    }
+
+    /**
+     * Process a new order by:
+     * 1) Creating a new entry in orders table
+     * 2) Creating a new entry in order_by_customer table
+     */
+    private void processNewOrder(int oid, Instant now, List<NewOrderLine> newOrderLines) {
+        createNewOrder(oid, newOrderLines, now);
+        createNewOrderByCustomer(now, oid);
     }
 
     private void createNewOrder(int oid, List<NewOrderLine> newOrderLines, Instant now) {
@@ -234,12 +257,33 @@ public class NewOrderTransaction extends BaseTransaction {
         return orderLines.stream().allMatch(ol -> ol.supplierWarehouseId == warehouseId);
     }
 
-    private ItemResultInfo processNewOrderLine(NewOrderLine newOrderLine, int orderId, int orderLineNumber) {
+    private void createNewOrderByCustomer(Instant now, int oid) {
+        session.execute(createOrderByCustomerQuery.bind()
+                .setInt("c_w_id", warehouseId)
+                .setInt("c_d_id", districtId)
+                .setInt("c_id", customerId)
+                .setInstant("o_entry_d", now)
+                .setInt("o_id", oid));
+    }
+
+    /**
+     * Process a given order line by:
+     * 1) Updating the stock of the item in the order line
+     * 2) Create a new entry in the order_line table
+     * 3) Create a new entry in the order_by_item table
+     */
+    private ItemResultInfo processNewOrderLine(NewOrderLine newOrderLine, int oid, int orderLineNumber) {
         UpdateStockResult updateStockResult = new UpdateStockResult(new BigDecimal(0), false);
+
+        // Spin loop is needed as updateStock query may fail if there are other queries that are updating the same
+        // row at the same time.
         while (!updateStockResult.isSuccessful) {
             updateStockResult = updateStock(newOrderLine);
         }
-        return createNewOrderLine(newOrderLine, orderId, orderLineNumber, updateStockResult.originalQuantity);
+
+        ItemResultInfo result = createNewOrderLine(newOrderLine, oid, orderLineNumber, updateStockResult.originalQuantity);
+        createNewOrderByItem(newOrderLine, oid);
+        return result;
     }
 
     private UpdateStockResult updateStock(NewOrderLine newOrderLine) {
@@ -301,6 +345,14 @@ public class NewOrderTransaction extends BaseTransaction {
         );
     }
 
+    private void createNewOrderByItem(NewOrderLine newOrderLine, int oid) {
+        session.execute(createOrderByItemQuery.bind()
+                .setInt("i_id", newOrderLine.itemId)
+                .setInt("o_w_id", warehouseId)
+                .setInt("o_d_id", districtId)
+                .setInt("o_id", oid));
+    }
+
     private BigDecimal getWarehouseTax() {
         return session.execute(getWarehouseInfoQuery.bind()
                 .setInt("w_id", warehouseId))
@@ -326,11 +378,11 @@ public class NewOrderTransaction extends BaseTransaction {
                 .withLocale( Locale.UK )
                 .withZone( ZoneId.of("UTC+08:00") );
 
+        System.out.printf("New order created\n");
         System.out.printf("Customer Info => id: (%d, %d, %d); lastname: %s; credit: %s; discount: %s\n",
                 warehouseId, districtId, customerId, summary.customerInfo.lastName, summary.customerInfo.credit,
                 summary.customerInfo.discount);
-        System.out.printf("Warehouse Info => tax rate: %s\n", summary.warehouseTax);
-        System.out.printf("District Info => tax rate: %s\n", summary.districtTax);
+        System.out.printf("Tax rate => warehouse: %s, district: %s\n", summary.warehouseTax, summary.districtTax);
         System.out.printf("Order Info => order number: %d, entry date (SG time): %s\n", summary.oid,
                 formatter.format(summary.oEntryD()));
         System.out.printf("Items Info => num items: %d, total amount: %s\n", noOfItems, summary.totalAmount);
