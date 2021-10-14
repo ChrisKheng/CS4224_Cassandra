@@ -8,9 +8,7 @@ import cs4224.ParallelExecutor;
 import cs4224.entities.Customer;
 import cs4224.entities.Order;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
     PreparedStatement getOrdersOfCustomerQuery;
@@ -65,8 +63,6 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     }
 
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
-        ParallelExecutor executor = new ParallelExecutor();
-
         // 1. Select all the orders that belong to the given customer.
         ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.bind()
                 .setInt("c_w_id", customerWarehouseId)
@@ -74,24 +70,22 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                 .setInt("c_id", customerId));
         Set<Order> relatedOrders = Collections.synchronizedSet(new HashSet<>());
 
-        // 2. For each order retrieved in 1:
+        // 2. For each order retrieved in 1, get the list of related customers.
         // Probably can optimize by avoiding rescanning repeated potentially related order
+        List<Integer> oids = new ArrayList<>();
         for (Row orderIdRow : orderIds) {
-            int orderId = orderIdRow.getInt("O_ID");
+            oids.add(orderIdRow.getInt("O_ID"));
+        }
+        oids.parallelStream().forEach(oid -> {
             Order order = Order.builder()
                     .warehouseId(customerWarehouseId)
                     .districtId(customerDistrictId)
-                    .id(orderId)
+                    .id(oid)
                     .build();
+            HashSet<Order> result = getRelatedOrders(order);
+            relatedOrders.addAll(result);
+        });
 
-            executor.addTask(() -> {
-                HashSet<Order> result = getRelatedOrders(order);
-                relatedOrders.addAll(result);
-                return null;
-            });
-        }
-
-        executor.execute();
         return getCustomersOfOrders(relatedOrders);
     }
 
