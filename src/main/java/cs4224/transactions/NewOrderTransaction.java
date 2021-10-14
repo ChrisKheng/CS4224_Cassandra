@@ -222,6 +222,14 @@ public class NewOrderTransaction extends BaseTransaction {
         return new DistrictInfo(dNextOid, dTax);
     }
 
+    private List<NewOrderLine> parseNewOrderLines(String[] datalines) {
+        return Arrays.stream(datalines)
+                .map(s -> s.split(","))
+                .map(tokens -> new NewOrderLine(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]),
+                        Integer.parseInt(tokens[2])))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Process a new order by:
      * 1) Creating a new entry in orders table
@@ -243,14 +251,6 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("o_carrier_id", nullCarrierId)
                 .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
                 .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0)));
-    }
-
-    private List<NewOrderLine> parseNewOrderLines(String[] datalines) {
-        return Arrays.stream(datalines)
-                .map(s -> s.split(","))
-                .map(tokens -> new NewOrderLine(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]),
-                        Integer.parseInt(tokens[2])))
-                .collect(Collectors.toList());
     }
 
     private boolean isAllItemsLocal(List<NewOrderLine> orderLines) {
