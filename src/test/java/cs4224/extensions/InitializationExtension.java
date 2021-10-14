@@ -47,7 +47,7 @@ public class InitializationExtension implements BeforeAllCallback, ExtensionCont
         System.out.println("Done initializing!");
     }
 
-    public void createSchema() {
+    private void createSchema() {
         Utils.executeBashCommand("cqlsh -f src/test/resources/create_table_test.cql");
     }
 

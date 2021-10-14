@@ -4,10 +4,13 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import cs4224.ParallelExecutor;
 import cs4224.entities.Customer;
 import cs4224.entities.Order;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Set;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
     PreparedStatement getOrdersOfCustomerQuery;
@@ -62,12 +65,14 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     }
 
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
+        ParallelExecutor executor = new ParallelExecutor();
+
         // 1. Select all the orders that belong to the given customer.
         ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.bind()
                 .setInt("c_w_id", customerWarehouseId)
                 .setInt("c_d_id", customerDistrictId)
                 .setInt("c_id", customerId));
-        HashSet<Order> relatedOrders = new HashSet<>();
+        Set<Order> relatedOrders = Collections.synchronizedSet(new HashSet<>());
 
         // 2. For each order retrieved in 1:
         // Probably can optimize by avoiding rescanning repeated potentially related order
@@ -78,10 +83,15 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                     .districtId(customerDistrictId)
                     .id(orderId)
                     .build();
-            HashSet<Order> result = getRelatedOrders(order);
-            relatedOrders.addAll(result);
+
+            executor.addTask(() -> {
+                HashSet<Order> result = getRelatedOrders(order);
+                relatedOrders.addAll(result);
+                return null;
+            });
         }
 
+        executor.execute();
         return getCustomersOfOrders(relatedOrders);
     }
 
@@ -97,7 +107,6 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         itemIds.forEach(r -> itemIdsSet.add(r.getInt("OL_I_ID")));
 
         // 2.2. For each item retrieved in 2.1:
-        // This for loop can be moved out of this nested for loop.
         for (Integer itemId : itemIdsSet) {
             // 2.2.1 Select all the orders that have the item
             ResultSet potentialOrders = session.execute(getOrdersOfItemQuery.bind().setInt("i_id", itemId));
@@ -139,7 +148,7 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         return relatedOrders;
     }
 
-    private HashSet<Customer> getCustomersOfOrders(HashSet<Order> orders) {
+    private HashSet<Customer> getCustomersOfOrders(Set<Order> orders) {
         HashSet<Customer> customers = new HashSet<>();
 
         for (Order order : orders) {
