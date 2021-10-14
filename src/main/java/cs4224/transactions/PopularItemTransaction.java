@@ -100,7 +100,7 @@ public class PopularItemTransaction extends BaseTransaction {
 
         orderQuantity.forEach((order, quantity) -> {
             System.out.printf(" Order number: %d, Entry date and time: %s\n", order.getId(), order.getEntryDateTime());
-            System.out.printf(" Customer: %s\n", customerMap.get(order.getCustomerId()));
+            System.out.printf(" Customer%s\n", customerMap.get(order.getCustomerId()).toName());
             orderItems.get(order.getId()).forEach(item ->
                     System.out.printf(" Item Name: %s, Order Line Quantity: %f\n", itemName.get(item), quantity));
             System.out.println();

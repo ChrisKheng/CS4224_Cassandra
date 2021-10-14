@@ -6,10 +6,11 @@ import java.util.List;
 public class Statistics {
 
     private static long computeMedian(List<Long> lst) {
+        if (lst.size() == 0) return 0;
         long mid = lst.get(lst.size() / 2);
+        if (lst.size() % 2 != 0) return mid;
         long mid_ = lst.get(lst.size() / 2 - 1);
-
-        return lst.size() % 2 != 0 ? mid : (mid+mid_)/2;
+        return  (mid+mid_)/2;
     }
 
     private static long computePercentile(List<Long> lst, int ptl) {

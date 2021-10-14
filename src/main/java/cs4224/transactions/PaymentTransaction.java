@@ -11,15 +11,18 @@ import cs4224.entities.Warehouse;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class PaymentTransaction extends BaseTransaction {
+    private final ExecutorService executorService;
     private final WarehouseDao warehouseDao;
     private final DistrictDao districtDao;
     private final CustomerDao customerDao;
 
-    public PaymentTransaction(CqlSession session, WarehouseDao warehouseDao,
-                              DistrictDao districtDao, CustomerDao customerDao) {
+    public PaymentTransaction(CqlSession session, ExecutorService executorService,
+                              WarehouseDao warehouseDao, DistrictDao districtDao, CustomerDao customerDao) {
         super(session);
+        this.executorService = executorService;
         this.warehouseDao = warehouseDao;
         this.districtDao = districtDao;
         this.customerDao = customerDao;
@@ -41,7 +44,7 @@ public class PaymentTransaction extends BaseTransaction {
 
     private List<Object> getEntities(final int customerWarehouseId, final int customerDistrictId,
                                      final int customerId) {
-        final ParallelExecutor getEntitiesExecutor = new ParallelExecutor()
+        final ParallelExecutor getEntitiesExecutor = new ParallelExecutor(executorService)
                 .addTask(() -> Warehouse.map(warehouseDao.getById(customerWarehouseId)))
                 .addTask(() -> District.map(districtDao.getById(customerWarehouseId, customerDistrictId)))
                 .addTask(() -> Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId)));
@@ -50,7 +53,7 @@ public class PaymentTransaction extends BaseTransaction {
 
     private List<Object> updateEntities(final List<Object> entities, final int customerWarehouseId,
                                         final int customerDistrictId, final int customerId, final double paymentAmount) {
-        final ParallelExecutor parallelExecutor = new ParallelExecutor()
+        final ParallelExecutor parallelExecutor = new ParallelExecutor(executorService)
                 .addTask(() -> updateWarehouse((Warehouse) entities.get(0), customerWarehouseId, customerDistrictId))
                 .addTask(() -> updateDistrict((District) entities.get(1), customerWarehouseId, customerDistrictId,
                         paymentAmount))
@@ -63,6 +66,7 @@ public class PaymentTransaction extends BaseTransaction {
         final Warehouse updatedWarehouse = new Warehouse();
         updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId, warehouse.getAmountPaidYTD());
+        warehouse.setAmountPaidYTD(updatedWarehouse.getAmountPaidYTD());
         return warehouse;
     }
 
@@ -72,25 +76,31 @@ public class PaymentTransaction extends BaseTransaction {
         updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
                 district.getAmountPaidYTD());
+        district.setAmountPaidYTD(updatedDistrict.getAmountPaidYTD());
         return district;
     }
 
     private Customer updateCustomer(final Customer customer, final int customerWarehouseId, final int customerDistrictId,
                                     final int customerId, final double paymentAmount) {
         final Customer updatedCustomer = new Customer();
-        updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)));
-        updatedCustomer.setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount));
-        updatedCustomer.setNumPayments(customer.getNumPayments() + 1);
+        updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
+                .setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount))
+                .setNumPayments(customer.getNumPayments() + 1);
         customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                 customerId, customer.getPaymentYTD());
+        customer.setBalance(updatedCustomer.getBalance()).setPaymentYTD(updatedCustomer.getPaymentYTD())
+                .setNumPayments(updatedCustomer.getNumPayments());
         return customer;
     }
 
     private void printOutput(final Warehouse warehouse, final District district, final Customer customer,
                              final double paymentAmount) {
-        System.out.printf(" %s\n", customer);
-        System.out.printf(" Warehouse(%s)\n", warehouse.addressToString());
-        System.out.printf(" District(%s)\n", district.addressToString());
-        System.out.printf(" Payment Amount= %f\n", paymentAmount);
+        System.out.printf("\n Customer Identifier (C_W_ID, C_D_ID, C_ID): %s", customer.toSpecifier());
+        System.out.println(customer.toName());
+        System.out.println(customer.toAddress());
+        System.out.println(customer.toOtherInfo());
+        System.out.println(warehouse.toAddress());
+        System.out.println(district.toAddress());
+        System.out.printf("Payment Amount: %f", paymentAmount);
     }
 }

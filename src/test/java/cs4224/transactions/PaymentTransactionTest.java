@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.concurrent.ExecutorService;
+
 import static cs4224.utils.Constants.*;
 
 @ExtendWith({InitializationExtension.class})
@@ -29,9 +31,10 @@ public class PaymentTransactionTest {
         final WarehouseDao warehouseDao = new WarehouseMapperBuilder(session).build().dao(WAREHOUSE_TABLE);
         final DistrictDao districtDao = new DistrictMapperBuilder(session).build().dao(DISTRICT_TABLE);;
         final CustomerDao customerDao = new CustomerMapperBuilder(session).build().dao(CUSTOMER_TABLE);
+        final ExecutorService executorService = InitializationExtension.executorService;
 
-
-        PaymentTransaction transaction = new PaymentTransaction(session, warehouseDao, districtDao, customerDao);
+        PaymentTransaction transaction = new PaymentTransaction(session, executorService, warehouseDao, districtDao,
+                customerDao);
         transaction.execute(new String[0], new String[]{"P","8","1","1267","122.34"});
     }
 }

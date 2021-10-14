@@ -1,6 +1,5 @@
 package cs4224;
 
-import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.inject.Inject;
 import cs4224.transactions.*;
 import cs4224.utils.Statistics;
@@ -14,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 public class Driver {
     public static long numQueries = 0;
 
-    private final CqlSession session;
     private final NewOrderTransaction newOrderTransaction;
     private final PaymentTransaction paymentTransaction;
     private final DeliveryTransaction deliveryTransaction;
@@ -26,11 +24,10 @@ public class Driver {
 
 
     @Inject
-    public Driver(CqlSession session, NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
+    public Driver(NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
                   DeliveryTransaction deliveryTransaction, OrderStatusTransaction orderStatusTransaction,
                   StockLevelTransaction stockLevelTransaction, PopularItemTransaction popularItemTransaction,
                   TopBalanceTransaction topBalanceTransaction, RelatedCustomerTransaction relatedCustomerTransaction) {
-        this.session = session;
         this.newOrderTransaction = newOrderTransaction;
         this.paymentTransaction = paymentTransaction;
         this.deliveryTransaction = deliveryTransaction;
@@ -60,7 +57,7 @@ public class Driver {
 
             String line = scanner.nextLine();
             String[] parameters = line.split(",");
-            String[] lines = {};
+            String[] lines = new String[0];
 
             switch (parameters[0]) {
                 case "N":
@@ -104,7 +101,6 @@ public class Driver {
             // System.out.printf("Transaction ID: %d\n", timeRecord.size());
             System.out.printf("Transaction ID: %d\n", numQueries);
             transaction.execute(lines, parameters);
-
             lEnd = System.nanoTime();
             lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
             timeRecord.add(lapse);
@@ -114,7 +110,6 @@ public class Driver {
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
         Statistics.computeTimeStatistics(timeRecord, totalLapse);
-        session.close();
         scanner.close();
     }
 }
