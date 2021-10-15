@@ -44,7 +44,7 @@ public class TopBalanceTransaction extends BaseTransaction {
         );
 
         this.getCustomersQuery = session.prepare(
-                "SELECT C_ID, C_FIRST, C_MIDDLE, C_LAST " +
+                "SELECT C_W_ID, C_D_ID, C_ID, C_FIRST, C_MIDDLE, C_LAST " +
                         "FROM customer " +
                         "WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id AND C_ID IN :c_ids"
         );
@@ -114,15 +114,23 @@ public class TopBalanceTransaction extends BaseTransaction {
                                         .build()
                         ).all().stream()
                 )
-                .collect(Collectors.toMap(
-                        customer -> customer.getInt(CqlIdentifier.fromCql("C_ID")),
-                        customer -> String.join(
-                                " ",
-                                customer.getString(CqlIdentifier.fromCql("C_FIRST")),
-                                customer.getString(CqlIdentifier.fromCql("C_MIDDLE")),
-                                customer.getString(CqlIdentifier.fromCql("C_LAST"))
+                .collect(
+                        Collectors.groupingBy(
+                                (Row customer) -> customer.getInt(CqlIdentifier.fromCql("C_W_ID")),
+                                Collectors.groupingBy(
+                                        (Row customer) -> customer.getInt(CqlIdentifier.fromCql("C_D_ID")),
+                                        Collectors.toMap(
+                                                (Row customer) -> customer.getInt(CqlIdentifier.fromCql("C_ID")),
+                                                (Row customer) -> String.join(
+                                                        " ",
+                                                        customer.getString(CqlIdentifier.fromCql("C_FIRST")),
+                                                        customer.getString(CqlIdentifier.fromCql("C_MIDDLE")),
+                                                        customer.getString(CqlIdentifier.fromCql("C_LAST"))
+                                                )
+                                        )
+                                )
                         )
-                ));
+                );
 
         final Callable<Object> districtNamesMappingTask = () -> groupedTopTenCustomers
                 .keySet()
@@ -155,8 +163,10 @@ public class TopBalanceTransaction extends BaseTransaction {
                 .addTask(districtNamesMappingTask)
                 .execute();
 
-        final Map<Integer, String> topTenCustomersNamesMapping = (Map<Integer, String>) resultsOfTasks.get(0);
-        final Map<Integer, Map<Integer, String>> districtNamesMapping = (Map<Integer, Map<Integer, String>>) resultsOfTasks.get(1);
+        final Map<Integer, Map<Integer, Map<Integer, String>>> topTenCustomersNamesMapping =
+                (Map<Integer, Map<Integer, Map<Integer, String>>>) resultsOfTasks.get(0);
+        final Map<Integer, Map<Integer, String>> districtNamesMapping =
+                (Map<Integer, Map<Integer, String>>) resultsOfTasks.get(1);
 
         topTenCustomers.forEach(customer ->
                 System.out.printf(
@@ -164,7 +174,10 @@ public class TopBalanceTransaction extends BaseTransaction {
                                 "Balance of customer's outstanding payment: %.2f%n" +
                                 "Warehouse name of customer: %s%n" +
                                 "District name of customer: %s%n%n",
-                        topTenCustomersNamesMapping.get(customer.getInt(CqlIdentifier.fromCql("C_ID"))),
+                        topTenCustomersNamesMapping
+                                .get(customer.getInt(CqlIdentifier.fromCql("C_W_ID")))
+                                .get(customer.getInt(CqlIdentifier.fromCql("C_D_ID")))
+                                .get(customer.getInt(CqlIdentifier.fromCql("C_ID"))),
                         customer.getBigDecimal(CqlIdentifier.fromCql("C_BALANCE")),
                         this.allWarehousesNamesMapping.get(customer.getInt(CqlIdentifier.fromCql("C_W_ID"))),
                         districtNamesMapping
