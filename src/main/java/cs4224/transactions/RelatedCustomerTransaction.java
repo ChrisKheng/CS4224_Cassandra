@@ -11,15 +11,20 @@ import cs4224.entities.Order;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
+
+    private final ExecutorService executorService;
     PreparedStatement getOrdersOfCustomerQuery;
     PreparedStatement getItemsOfOrderQuery;
     PreparedStatement getOrdersOfItemQuery;
     PreparedStatement getCustomerOfOrderQuery;
 
-    public RelatedCustomerTransaction(CqlSession session) {
+    public RelatedCustomerTransaction(CqlSession session, ExecutorService executorService) {
         super(session);
+
+        this.executorService = executorService;
 
         getOrdersOfCustomerQuery = session.prepare(
                 "SELECT O_ID "
@@ -65,7 +70,7 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     }
 
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
-        ParallelExecutor executor = new ParallelExecutor();
+        ParallelExecutor executor = new ParallelExecutor(this.executorService);
 
         // 1. Select all the orders that belong to the given customer.
         ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.bind()
