@@ -219,24 +219,27 @@ public class NewOrderTransaction extends BaseTransaction {
         // Spin loop is needed as the update query may fail if there are other queries that are updating the same row
         // at the same time.
         while (!isIncrementSuccessful) {
-            ResultSet resultSet = session.execute(getDNextOidQuery.boundStatementBuilder()
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId)
-                    .build());
-            Row row = resultSet.one();
+            try {
+                ResultSet resultSet = session.execute(getDNextOidQuery.boundStatementBuilder()
+                        .setInt("d_w_id", warehouseId)
+                        .setInt("d_id", districtId)
+                        .build());
+                Row row = resultSet.one();
 
-            dTax = row.getBigDecimal("D_TAX");
-            dNextOid = row.getInt("D_NEXT_O_ID");
+                dTax = row.getBigDecimal("D_TAX");
+                dNextOid = row.getInt("D_NEXT_O_ID");
 
-            ResultSet updateRow = session.execute(incrementDNextOidQuery.boundStatementBuilder()
-                    .setTimeout(Duration.ofSeconds(20))
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId)
-                    .setInt("d_next_o_id", dNextOid)
-                    .setInt("d_new_o_id", dNextOid + 1)
-                    .build());
+                ResultSet updateRow = session.execute(incrementDNextOidQuery.boundStatementBuilder()
+                        .setTimeout(Duration.ofSeconds(20))
+                        .setInt("d_w_id", warehouseId)
+                        .setInt("d_id", districtId)
+                        .setInt("d_next_o_id", dNextOid)
+                        .setInt("d_new_o_id", dNextOid + 1)
+                        .build());
 
-            isIncrementSuccessful = updateRow.wasApplied();
+                isIncrementSuccessful = updateRow.wasApplied();
+            } catch (Exception e) {
+            }
         }
 
         return new DistrictInfo(dNextOid, dTax);
