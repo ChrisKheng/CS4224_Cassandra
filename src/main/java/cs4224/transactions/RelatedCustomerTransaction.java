@@ -69,6 +69,11 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         System.out.printf("\n");
     }
 
+    @Override
+    public String getType() {
+        return "Related Customer";
+    }
+
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
         ParallelExecutor executor = new ParallelExecutor(this.executorService);
 

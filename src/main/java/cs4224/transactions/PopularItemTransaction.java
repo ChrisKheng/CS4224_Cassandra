@@ -46,9 +46,13 @@ public class PopularItemTransaction extends BaseTransaction {
         final Map<Integer, Customer> customerMap = new ConcurrentHashMap<>(); // CustomerId -> CustomerName
 
         orders.parallelStream().forEach(order -> {
-            final BigDecimal max_quantity = getOrderLineMaxQuantity(warehouseId, districtId, order);
-            final Stream<OrderLine> orderLineItem = getOrderLine(warehouseId, districtId, order, max_quantity);
-            final List<Integer> items = orderLineItem.map(OrderLine::getItemId).collect(Collectors.toList());
+            BigDecimal max_quantity = getOrderLineMaxQuantity(warehouseId, districtId, order);
+            List<Integer> items = new ArrayList<>();
+            if (max_quantity != null) {
+                final Stream<OrderLine> orderLineItem = getOrderLine(warehouseId, districtId, order, max_quantity);
+                items = orderLineItem.map(OrderLine::getItemId).collect(Collectors.toList());
+            }
+            max_quantity = max_quantity == null ? new BigDecimal(-1) : max_quantity;
             orderQuantity.put(order, max_quantity);
             orderItems.put(order.getId(), items);
             customerMap.put(order.getCustomerId(),
@@ -70,6 +74,11 @@ public class PopularItemTransaction extends BaseTransaction {
         });
 
         printOutput(warehouseId, districtId, L, orderQuantity, orderItems, customerMap, itemNumOrders, itemName);
+    }
+
+    @Override
+    public String getType() {
+        return "Popular Item";
     }
 
     private District getDistrict(final int warehouseId, final int districtId) {
@@ -103,6 +112,9 @@ public class PopularItemTransaction extends BaseTransaction {
             System.out.printf(" Customer%s\n", customerMap.get(order.getCustomerId()).toName());
             orderItems.get(order.getId()).forEach(item ->
                     System.out.printf(" Item Name: %s, Order Line Quantity: %f\n", itemName.get(item), quantity));
+            if (orderItems.get(order.getId()).size() == 0) {
+                System.out.println(" No order lines added for the given order Id yet.");
+            }
             System.out.println();
         });
 

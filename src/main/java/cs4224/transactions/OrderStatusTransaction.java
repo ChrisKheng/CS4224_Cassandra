@@ -1,11 +1,9 @@
 package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 public class OrderStatusTransaction extends BaseTransaction {
@@ -84,5 +82,10 @@ public class OrderStatusTransaction extends BaseTransaction {
         } else {
             System.out.println("Customer not found.");
         }
+    }
+
+    @Override
+    public String getType() {
+        return "Order Status";
     }
 }

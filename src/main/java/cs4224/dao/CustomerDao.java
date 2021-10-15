@@ -18,7 +18,7 @@ public interface CustomerDao {
     @Update(customWhereClause = "C_W_ID = :warehouseId AND C_D_ID = :districtId AND C_ID = :id IF c_ytd_payment = :c_ytd",
             nullSavingStrategy = DO_NOT_SET)
     @StatementAttributes(timeout = "PT10S")
-    void updateWhereIdEquals(Customer customer, int warehouseId, int districtId, int id, float c_ytd);
+    Boolean updateWhereIdEquals(Customer customer, int warehouseId, int districtId, int id, float c_ytd);
 
     @Query("SELECT C_FIRST, C_MIDDLE, C_LAST FROM ${qualifiedTableId} WHERE C_W_ID = :warehouseId AND C_D_ID = :districtId " +
             "AND C_ID = :id")
