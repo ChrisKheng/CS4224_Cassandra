@@ -22,7 +22,6 @@ public class Driver {
     private final TopBalanceTransaction topBalanceTransaction;
     private final RelatedCustomerTransaction relatedCustomerTransaction;
 
-
     @Inject
     public Driver(NewOrderTransaction newOrderTransaction, PaymentTransaction paymentTransaction,
                   DeliveryTransaction deliveryTransaction, OrderStatusTransaction orderStatusTransaction,
@@ -37,8 +36,6 @@ public class Driver {
         this.topBalanceTransaction = topBalanceTransaction;
         this.relatedCustomerTransaction = relatedCustomerTransaction;
     }
-
-
 
     void runQueries(String queryFilename) throws Exception {
         File queryTxt = new File(queryFilename);
