@@ -10,4 +10,7 @@ public abstract class BaseTransaction {
     }
 
     public abstract void execute(final String[] dataLines, final String[] parameters);
+
+    public abstract String getType();
+
 }

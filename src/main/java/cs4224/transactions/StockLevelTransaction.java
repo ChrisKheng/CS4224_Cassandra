@@ -84,4 +84,9 @@ public class StockLevelTransaction extends BaseTransaction {
 
         System.out.printf("Number of items with stock quantities below the threshold: %d%n", count);
     }
+
+    @Override
+    public String getType() {
+        return "Stock Level";
+    }
 }

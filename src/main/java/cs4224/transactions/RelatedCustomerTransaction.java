@@ -61,6 +61,11 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         System.out.printf("\n");
     }
 
+    @Override
+    public String getType() {
+        return "Related Customer";
+    }
+
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
         // 1. Select all the orders that belong to the given customer.
         ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.boundStatementBuilder()

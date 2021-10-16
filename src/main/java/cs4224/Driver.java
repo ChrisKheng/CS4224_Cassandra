@@ -96,7 +96,7 @@ public class Driver {
             lStart = System.nanoTime();
             System.out.println("\n======================================================================");
             // System.out.printf("Transaction ID: %d\n", timeRecord.size());
-            System.out.printf("Transaction ID: %d\n", numQueries);
+            System.out.printf("Transaction ID: %d | Type: %s\n", numQueries, transaction.getType());
             transaction.execute(lines, parameters);
             lEnd = System.nanoTime();
             lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);

@@ -211,6 +211,11 @@ public class NewOrderTransaction extends BaseTransaction {
         printSummary(new NewOrderSummary(customerInfo, warehouseTax, districtTax, now, oid, totalAmount, orderLinesResult));
     }
 
+    @Override
+    public String getType() {
+        return "New Order";
+    }
+
     private DistrictInfo getAndUpdateDistrictNextOid() {
         boolean isIncrementSuccessful = false;
         int dNextOid = -1;
