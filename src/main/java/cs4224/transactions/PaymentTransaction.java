@@ -8,12 +8,15 @@ import cs4224.dao.WarehouseDao;
 import cs4224.entities.Customer;
 import cs4224.entities.District;
 import cs4224.entities.Warehouse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 public class PaymentTransaction extends BaseTransaction {
+    private static final Logger LOG = LoggerFactory.getLogger(PaymentTransaction.class);
     private final ExecutorService executorService;
     private final WarehouseDao warehouseDao;
     private final DistrictDao districtDao;
@@ -42,6 +45,11 @@ public class PaymentTransaction extends BaseTransaction {
                 (Customer) updatedEntities.get(2), paymentAmount);
     }
 
+    @Override
+    public String getType() {
+        return "Payment";
+    }
+
     private List<Object> getEntities(final int customerWarehouseId, final int customerDistrictId,
                                      final int customerId) {
         final ParallelExecutor getEntitiesExecutor = new ParallelExecutor(executorService)
@@ -65,7 +73,15 @@ public class PaymentTransaction extends BaseTransaction {
     private Warehouse updateWarehouse(final Warehouse warehouse, final int customerWarehouseId, final double paymentAmount) {
         final Warehouse updatedWarehouse = new Warehouse();
         updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-        warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId, warehouse.getAmountPaidYTD());
+        Boolean isApplied = false;
+        while (!isApplied) {
+            try {
+                isApplied = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
+                        warehouse.getAmountPaidYTD());
+            } catch (Exception ex) {
+                LOG.error("Error while updating warehouse: ", ex);
+            }
+        }
         warehouse.setAmountPaidYTD(updatedWarehouse.getAmountPaidYTD());
         return warehouse;
     }
@@ -74,8 +90,15 @@ public class PaymentTransaction extends BaseTransaction {
                                     final double paymentAmount) {
         final District updatedDistrict = new District();
         updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-        districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
-                district.getAmountPaidYTD());
+        Boolean isApplied = false;
+        while (!isApplied) {
+            try {
+                isApplied = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
+                        district.getAmountPaidYTD());
+            } catch (Exception ex) {
+                LOG.error("Error while updating district: ", ex);
+            }
+        }
         district.setAmountPaidYTD(updatedDistrict.getAmountPaidYTD());
         return district;
     }
@@ -86,8 +109,15 @@ public class PaymentTransaction extends BaseTransaction {
         updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
                 .setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount))
                 .setNumPayments(customer.getNumPayments() + 1);
-        customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
-                customerId, customer.getPaymentYTD());
+        Boolean isApplied = false;
+        while (!isApplied) {
+            try {
+                isApplied = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
+                        customerId, customer.getPaymentYTD());
+            } catch (Exception ex) {
+                LOG.error("Error while updating customer: ", ex);
+            }
+        }
         customer.setBalance(updatedCustomer.getBalance()).setPaymentYTD(updatedCustomer.getPaymentYTD())
                 .setNumPayments(updatedCustomer.getNumPayments());
         return customer;
@@ -101,6 +131,6 @@ public class PaymentTransaction extends BaseTransaction {
         System.out.println(customer.toOtherInfo());
         System.out.println(warehouse.toAddress());
         System.out.println(district.toAddress());
-        System.out.printf("Payment Amount: %f", paymentAmount);
+        System.out.printf(" Payment Amount: %f", paymentAmount);
     }
 }

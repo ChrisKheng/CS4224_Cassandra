@@ -20,7 +20,7 @@ public interface WarehouseDao {
 
     @Update(customWhereClause = "W_ID = :id IF w_ytd = :w_ytd", nullSavingStrategy = DO_NOT_SET)
     @StatementAttributes(timeout = "PT10S")
-    void updateWhereIdEquals(Warehouse warehouse, int id, BigDecimal w_ytd);
+    Boolean updateWhereIdEquals(Warehouse warehouse, int id, BigDecimal w_ytd);
 
     @Query("SELECT W_ID FROM ${qualifiedTableId}")
     ResultSet getAllWarehouseIDs();

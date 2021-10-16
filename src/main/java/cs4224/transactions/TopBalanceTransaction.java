@@ -186,4 +186,9 @@ public class TopBalanceTransaction extends BaseTransaction {
                 )
         );
     }
+
+    @Override
+    public String getType() {
+        return "Top Balance";
+    }
 }

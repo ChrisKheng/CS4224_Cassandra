@@ -123,4 +123,9 @@ public class DeliveryTransaction extends BaseTransaction{
         Arrays.stream(dataLines).forEach(System.out::println);
 
     }
+
+    @Override
+    public String getType() {
+        return "Delivery";
+    }
 }
