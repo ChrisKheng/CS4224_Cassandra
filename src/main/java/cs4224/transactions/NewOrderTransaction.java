@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class NewOrderTransaction extends BaseTransaction {
-    private static int nullCarrierId = -1;
+    private static final int nullCarrierId = -1;
     private int customerId;
     private int warehouseId;
     private int districtId;
@@ -136,8 +136,8 @@ public class NewOrderTransaction extends BaseTransaction {
         );
 
         createOrderByCustomerQuery = session.prepare(
-                "INSERT INTO ORDER_BY_CUSTOMER (C_W_ID, C_D_ID, C_ID, O_ENTRY_D, O_ID) " +
-                        "VALUES (:c_w_id, :c_d_id, :c_id, :o_entry_d, :o_id)"
+                "INSERT INTO ORDER_BY_CUSTOMER (C_W_ID, C_D_ID, C_ID, O_ENTRY_D, O_ID, O_CARRIER_ID) " +
+                        "VALUES (:c_w_id, :c_d_id, :c_id, :o_entry_d, :o_id, :o_carrier_id)"
         );
 
         createOrderByItemQuery = session.prepare(
@@ -207,19 +207,27 @@ public class NewOrderTransaction extends BaseTransaction {
         // Spin loop is needed as the update query may fail if there are other queries that are updating the same row
         // at the same time.
         while (!isIncrementSuccessful) {
-            ResultSet resultSet = session.execute(getDNextOidQuery.bind()
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId));
+            ResultSet resultSet = session.execute(
+                    getDNextOidQuery
+                            .boundStatementBuilder()
+                            .setInt("d_w_id", warehouseId)
+                            .setInt("d_id", districtId)
+                            .build()
+            );
             Row row = resultSet.one();
 
             dTax = row.getBigDecimal("D_TAX");
             dNextOid = row.getInt("D_NEXT_O_ID");
 
-            ResultSet updateRow = session.execute(incrementDNextOidQuery.bind()
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId)
-                    .setInt("d_next_o_id", dNextOid)
-                    .setInt("d_new_o_id", dNextOid + 1));
+            ResultSet updateRow = session.execute(
+                    incrementDNextOidQuery
+                            .boundStatementBuilder()
+                            .setInt("d_w_id", warehouseId)
+                            .setInt("d_id", districtId)
+                            .setInt("d_next_o_id", dNextOid)
+                            .setInt("d_new_o_id", dNextOid + 1)
+                            .build()
+            );
 
             isIncrementSuccessful = updateRow.wasApplied();
         }
@@ -247,15 +255,19 @@ public class NewOrderTransaction extends BaseTransaction {
 
     private void createNewOrder(int oid, List<NewOrderLine> newOrderLines, Instant now) {
         boolean isAllItemsLocal = isAllItemsLocal(newOrderLines);
-        session.execute(createOrderQuery.bind()
-                .setInt("o_id", oid)
-                .setInt("o_d_id", districtId)
-                .setInt("o_w_id", warehouseId)
-                .setInt("o_c_id", customerId)
-                .setInstant("o_entry_d", now)
-                .setInt("o_carrier_id", nullCarrierId)
-                .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
-                .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0)));
+        session.execute(
+                createOrderQuery
+                        .boundStatementBuilder()
+                        .setInt("o_id", oid)
+                        .setInt("o_d_id", districtId)
+                        .setInt("o_w_id", warehouseId)
+                        .setInt("o_c_id", customerId)
+                        .setInstant("o_entry_d", now)
+                        .setInt("o_carrier_id", nullCarrierId)
+                        .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
+                        .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0))
+                        .build()
+        );
     }
 
     private boolean isAllItemsLocal(List<NewOrderLine> orderLines) {
@@ -263,12 +275,17 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     private void createNewOrderByCustomer(Instant now, int oid) {
-        session.execute(createOrderByCustomerQuery.bind()
-                .setInt("c_w_id", warehouseId)
-                .setInt("c_d_id", districtId)
-                .setInt("c_id", customerId)
-                .setInstant("o_entry_d", now)
-                .setInt("o_id", oid));
+        session.execute(
+                createOrderByCustomerQuery
+                        .boundStatementBuilder()
+                        .setInt("c_w_id", warehouseId)
+                        .setInt("c_d_id", districtId)
+                        .setInt("c_id", customerId)
+                        .setInstant("o_entry_d", now)
+                        .setInt("o_id", oid)
+                        .setInt("o_carrier_id", nullCarrierId)
+                        .build()
+        );
     }
 
     /**
@@ -292,10 +309,13 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     private UpdateStockResult updateStock(NewOrderLine newOrderLine) {
-         Row currentStockInfo = session.execute(getStockInfoQuery.bind()
-                 .setInt("s_w_id", newOrderLine.supplierWarehouseId)
-                 .setInt("s_i_id", newOrderLine.itemId))
-                 .one();
+         Row currentStockInfo = session.execute(
+                 getStockInfoQuery
+                         .boundStatementBuilder()
+                         .setInt("s_w_id", newOrderLine.supplierWarehouseId)
+                         .setInt("s_i_id", newOrderLine.itemId)
+                         .build()
+         ).one();
 
          BigDecimal originalQty = currentStockInfo.getBigDecimal("S_QUANTITY");
          BigDecimal adjustedQty = originalQty.subtract(new BigDecimal(newOrderLine.quantity));
@@ -303,17 +323,22 @@ public class NewOrderTransaction extends BaseTransaction {
              adjustedQty.add(new BigDecimal(100));
          }
 
-         boolean isSuccessful = session.execute(updateStockQuery.bind()
-                 .setBigDecimal("s_quantity", adjustedQty)
-                 .setBigDecimal("s_ytd",
-                         currentStockInfo.getBigDecimal("S_YTD").add(new BigDecimal(newOrderLine.quantity)))
-                 .setInt("new_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT") + 1)
-                 .setInt("s_remote_cnt", newOrderLine.supplierWarehouseId != warehouseId
-                         ? currentStockInfo.getInt("S_REMOTE_CNT") + 1
-                         : currentStockInfo.getInt("S_REMOTE_CNT"))
-                 .setInt("s_w_id", newOrderLine.supplierWarehouseId)
-                 .setInt("s_i_id", newOrderLine.itemId)
-                 .setInt("original_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT"))
+         boolean isSuccessful = session.execute(
+                 updateStockQuery
+                         .boundStatementBuilder()
+                         .setBigDecimal("s_quantity", adjustedQty)
+                         .setBigDecimal(
+                                 "s_ytd",
+                                 currentStockInfo.getBigDecimal("S_YTD").add(new BigDecimal(newOrderLine.quantity))
+                         )
+                         .setInt("new_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT") + 1)
+                         .setInt("s_remote_cnt", newOrderLine.supplierWarehouseId != warehouseId
+                                 ? currentStockInfo.getInt("S_REMOTE_CNT") + 1
+                                 : currentStockInfo.getInt("S_REMOTE_CNT"))
+                         .setInt("s_w_id", newOrderLine.supplierWarehouseId)
+                         .setInt("s_i_id", newOrderLine.itemId)
+                         .setInt("original_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT"))
+                         .build()
          ).wasApplied();
 
          return new UpdateStockResult(originalQty, isSuccessful);
@@ -321,23 +346,29 @@ public class NewOrderTransaction extends BaseTransaction {
 
     private ItemResultInfo createNewOrderLine(NewOrderLine newOrderLine, int orderId, int orderLineNumber,
                                               BigDecimal originalStockQuantity) {
-        Row itemInfo = session.execute(getItemInfoQuery.bind()
-                .setInt("i_id", newOrderLine.itemId))
-                .one();
+        Row itemInfo = session.execute(
+                getItemInfoQuery
+                        .boundStatementBuilder()
+                        .setInt("i_id", newOrderLine.itemId)
+                        .build()
+        ).one();
 
         BigDecimal itemAmount = new BigDecimal(newOrderLine.quantity).multiply(itemInfo.getBigDecimal("I_PRICE"));
 
-        session.execute(createOrderLineQuery.bind()
-                .setInt("ol_w_id", warehouseId)
-                .setInt("ol_d_id", districtId)
-                .setInt("ol_o_id", orderId)
-                .setInt("ol_number", orderLineNumber)
-                .setInt("ol_i_id", newOrderLine.itemId)
-                .setInt("ol_supply_w_id", newOrderLine.supplierWarehouseId)
-                .setBigDecimal("ol_quantity", new BigDecimal(newOrderLine.quantity))
-                .setBigDecimal("ol_amount", itemAmount)
-                .setInstant("ol_delivery_d", null)
-                .setString("ol_dist_info", String.format("S_DIST_%d", districtId))
+        session.execute(
+                createOrderLineQuery
+                        .boundStatementBuilder()
+                        .setInt("ol_w_id", warehouseId)
+                        .setInt("ol_d_id", districtId)
+                        .setInt("ol_o_id", orderId)
+                        .setInt("ol_number", orderLineNumber)
+                        .setInt("ol_i_id", newOrderLine.itemId)
+                        .setInt("ol_supply_w_id", newOrderLine.supplierWarehouseId)
+                        .setBigDecimal("ol_quantity", new BigDecimal(newOrderLine.quantity))
+                        .setBigDecimal("ol_amount", itemAmount)
+                        .setInstant("ol_delivery_d", null)
+                        .setString("ol_dist_info", String.format("S_DIST_%d", districtId))
+                        .build()
         );
 
         return new ItemResultInfo(
@@ -351,26 +382,35 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     private void createNewOrderByItem(NewOrderLine newOrderLine, int oid) {
-        session.execute(createOrderByItemQuery.bind()
-                .setInt("i_id", newOrderLine.itemId)
-                .setInt("o_w_id", warehouseId)
-                .setInt("o_d_id", districtId)
-                .setInt("o_id", oid));
+        session.execute(
+                createOrderByItemQuery
+                        .boundStatementBuilder()
+                        .setInt("i_id", newOrderLine.itemId)
+                        .setInt("o_w_id", warehouseId)
+                        .setInt("o_d_id", districtId)
+                        .setInt("o_id", oid)
+                        .build()
+        );
     }
 
     private BigDecimal getWarehouseTax() {
-        return session.execute(getWarehouseInfoQuery.bind()
-                .setInt("w_id", warehouseId))
-                .one()
-                .getBigDecimal("W_TAX");
+        return session.execute(
+                getWarehouseInfoQuery
+                        .boundStatementBuilder()
+                        .setInt("w_id", warehouseId)
+                        .build()
+        ).one().getBigDecimal("W_TAX");
     }
 
     private CustomerInfo getCustomerInfo() {
-        Row row = session.execute(getCustomerInfoQuery.bind()
-                .setInt("c_w_id", warehouseId)
-                .setInt("c_d_id", districtId)
-                .setInt("c_id", customerId))
-                .one();
+        Row row = session.execute(
+                getCustomerInfoQuery
+                        .boundStatementBuilder()
+                        .setInt("c_w_id", warehouseId)
+                        .setInt("c_d_id", districtId)
+                        .setInt("c_id", customerId)
+                        .build()
+        ).one();
 
         return new CustomerInfo(
                 row.getString("C_LAST"),
