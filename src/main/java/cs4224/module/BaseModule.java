@@ -3,6 +3,7 @@ package cs4224.module;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.session.SessionBuilder;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
@@ -115,6 +116,9 @@ public class BaseModule extends AbstractModule {
     @Provides
     @Inject
     public NewOrderTransaction provideNewOrderTransaction(CqlSession session) {
+        System.out.println(session.getContext().getConfigLoader().getInitialConfig()
+                .getDefaultProfile().getDuration(DefaultDriverOption.REQUEST_TIMEOUT));
+
         return new NewOrderTransaction(session);
     }
 

@@ -74,6 +74,8 @@ CREATE TABLE orders (
 	O_ENTRY_D timestamp,
 	PRIMARY KEY ((O_W_ID, O_D_ID), O_ID)
 );
+DROP INDEX IF EXISTS o_carrier_id_index;
+CREATE INDEX o_carrier_id_index ON orders (O_CARRIER_ID);
 
 DROP TABLE IF EXISTS item;
 CREATE TABLE item (
@@ -129,6 +131,7 @@ CREATE TABLE order_by_customer (
     C_ID int,
     O_ENTRY_D timestamp,
     O_ID int,
+    O_CARRIER_ID int,
     PRIMARY KEY ((C_W_ID, C_D_ID, C_ID), O_ENTRY_D, O_ID))
 WITH CLUSTERING ORDER BY (O_ENTRY_D DESC, O_ID DESC);
 
