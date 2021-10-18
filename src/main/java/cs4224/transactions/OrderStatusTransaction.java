@@ -42,9 +42,10 @@ public class OrderStatusTransaction extends BaseTransaction {
             //2
             // order_by_customer does not seem any faster here
             String queryGetCustomerLastOrder = String.format(
-                    "SELECT O_ID, O_ENTRY_D, O_CARRIER_ID FROM orders " +
-                            "WHERE O_W_ID = %d and O_D_ID = %d and O_C_ID = %d" +
-                            "ORDER BY O_ID DESC LIMIT 1 ALLOW FILTERING", warehouseId, districtId, customerId);
+                    "SELECT O_ID, O_ENTRY_D, O_CARRIER_ID FROM order_by_customer " +
+                    "WHERE C_W_ID = %d and C_D_ID = %d and C_ID = %d " +
+                    "ORDER BY O_ENTRY_D DESC, O_ID DESC LIMIT 1",
+                    warehouseId, districtId, customerId);
 
             Row lastOrder = session.execute(queryGetCustomerLastOrder).one();
 

@@ -43,7 +43,7 @@ public class DeliveryTransaction extends BaseTransaction{
                     "SELECT * " +
                     "FROM orders " +
                     "WHERE O_W_ID = %d and O_D_ID = %d and O_CARRIER_ID = -1 " +
-                    "LIMIT 1 ALLOW FILTERING",
+                    "LIMIT 1",
                     warehouseId, districtNo);
             Row row = session.execute(queryA).one();
 
@@ -60,6 +60,15 @@ public class DeliveryTransaction extends BaseTransaction{
                         carrierId, warehouseId, districtNo, orderId);
 
                 session.execute(queryB);
+
+                //TODO: turn all statements in this file into PreparedStatement
+                session.execute(
+                        String.format(
+                                "UPDATE order_by_customer " +
+                                "SET O_CARRIER_ID = %d " +
+                                "WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d",
+                                carrierId, warehouseId, districtNo, customerId)
+                );
 
 
                 Double olAmount = 0.0;
