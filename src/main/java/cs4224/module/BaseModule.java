@@ -143,7 +143,7 @@ public class BaseModule extends AbstractModule {
     @Provides
     @Inject
     public RelatedCustomerTransaction provideRelatedCustomerTransaction(CqlSession session, ExecutorService executorService) {
-        return new RelatedCustomerTransaction(session, executorService);
+        return new RelatedCustomerTransaction(session);
     }
 
     @Provides

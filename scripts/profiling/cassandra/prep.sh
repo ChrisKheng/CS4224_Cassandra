@@ -1,27 +1,27 @@
 #!/bin/bash
-# This script assumes the presence of a directory known as profiling_files containing the files needed to perform the profiling
-# This script only needs to be run once before running launch.sh for the first time.
-# For the subsequent run of launch.sh, this script does not need to be run.
-
-username="$USER"
-dest_dir=$(pwd)
-data_files_dir="profiling_files"
-
-if ! [[ -d ${data_files_dir} ]]
+if [[ $# -ne 2 ]]
 then
-	echo "${data_files_dir} directory is not present"
+	echo "Usage: launch <keyspace_name> <workload_type>"
+	echo "keyspace_name: Keyspace name for the workload"
+	echo "workload_type: A or B"
 	exit 1
 fi
 
-[[ -e ${data_files_dir}.tgz ]] && rm ${data_files_dir}.tgz
-tar -czf ${data_files_dir}.tgz ${data_files_dir}
+username="$USER"
+keyspace_name="$1"
+workload_type="$2"
+dest_dir=$(pwd)
+data_files_dir="profiling_files"
 
-# NOTE: REPLACE THIS VARIABLE ACCORDINGLY
+# NOTES: REPLACE THIS ACCORDINGLY BASED ON THE SERVERS TO RUN ON
 servers=(xcnc4{1..4})
 
+current_id=8
 for server in "${servers[@]}"
 do
-	ssh ${username}@${server} "mkdir -p ${dest_dir}"
-	scp ${data_files_dir}.tgz ${username}@${server}:${dest_dir}
-	ssh ${username}@${server} "cd ${dest_dir}; tar -xzf ${data_files_dir}.tgz"
+	ssh ${username}@${server} "cd ${dest_dir}/${data_files_dir}; ./run-clients.sh ${current_id} ${keyspace_name} ${workload_type}"
+	(( current_id += 8 ))
 done
+
+cd ${data_files_dir}
+./run-clients.sh 0 "$keyspace_name" "$workload_type"

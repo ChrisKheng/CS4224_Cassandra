@@ -4,27 +4,19 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
-import cs4224.ParallelExecutor;
 import cs4224.entities.Customer;
 import cs4224.entities.Order;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
+import java.util.*;
 
 public class RelatedCustomerTransaction extends BaseTransaction {
-
-    private final ExecutorService executorService;
     PreparedStatement getOrdersOfCustomerQuery;
     PreparedStatement getItemsOfOrderQuery;
     PreparedStatement getOrdersOfItemQuery;
     PreparedStatement getCustomerOfOrderQuery;
 
-    public RelatedCustomerTransaction(CqlSession session, ExecutorService executorService) {
+    public RelatedCustomerTransaction(CqlSession session) {
         super(session);
-
-        this.executorService = executorService;
 
         getOrdersOfCustomerQuery = session.prepare(
                 "SELECT O_ID "
@@ -75,33 +67,30 @@ public class RelatedCustomerTransaction extends BaseTransaction {
     }
 
     public HashSet<Customer> executeAndGetResult(int customerWarehouseId, int customerDistrictId, int customerId) {
-        ParallelExecutor executor = new ParallelExecutor(this.executorService);
-
         // 1. Select all the orders that belong to the given customer.
-        ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.bind()
+        ResultSet orderIds = session.execute(getOrdersOfCustomerQuery.boundStatementBuilder()
                 .setInt("c_w_id", customerWarehouseId)
                 .setInt("c_d_id", customerDistrictId)
-                .setInt("c_id", customerId));
+                .setInt("c_id", customerId)
+                .build());
         Set<Order> relatedOrders = Collections.synchronizedSet(new HashSet<>());
 
-        // 2. For each order retrieved in 1:
+        // 2. For each order retrieved in 1, get the list of related customers.
         // Probably can optimize by avoiding rescanning repeated potentially related order
+        List<Integer> oids = new ArrayList<>();
         for (Row orderIdRow : orderIds) {
-            int orderId = orderIdRow.getInt("O_ID");
+            oids.add(orderIdRow.getInt("O_ID"));
+        }
+        oids.parallelStream().forEach(oid -> {
             Order order = Order.builder()
                     .warehouseId(customerWarehouseId)
                     .districtId(customerDistrictId)
-                    .id(orderId)
+                    .id(oid)
                     .build();
+            HashSet<Order> result = getRelatedOrders(order);
+            relatedOrders.addAll(result);
+        });
 
-            executor.addTask(() -> {
-                HashSet<Order> result = getRelatedOrders(order);
-                relatedOrders.addAll(result);
-                return null;
-            });
-        }
-
-        executor.execute();
         return getCustomersOfOrders(relatedOrders);
     }
 
@@ -109,17 +98,21 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         HashSet<Order> relatedOrders = new HashSet<>();
 
         // 2.1. Select all the items that belong to the order.
-        ResultSet itemIds = session.execute(getItemsOfOrderQuery.bind()
+        ResultSet itemIds = session.execute(getItemsOfOrderQuery.boundStatementBuilder()
                 .setInt("ol_w_id", order.getWarehouseId())
                 .setInt("ol_d_id", order.getDistrictId())
-                .setInt("ol_o_id", order.getId()));
+                .setInt("ol_o_id", order.getId())
+                .build());
         HashSet<Integer> itemIdsSet = new HashSet<>();
         itemIds.forEach(r -> itemIdsSet.add(r.getInt("OL_I_ID")));
 
         // 2.2. For each item retrieved in 2.1:
         for (Integer itemId : itemIdsSet) {
             // 2.2.1 Select all the orders that have the item
-            ResultSet potentialOrders = session.execute(getOrdersOfItemQuery.bind().setInt("i_id", itemId));
+            ResultSet potentialOrders = session.execute(getOrdersOfItemQuery
+                    .boundStatementBuilder()
+                    .setInt("i_id", itemId)
+                    .build());
 
             // 2.2.2. For each potentially related order retrieved in 2.2.1:
             for (Row potentialOrderRow : potentialOrders) {
@@ -133,10 +126,11 @@ public class RelatedCustomerTransaction extends BaseTransaction {
                 int potentialOrderId = potentialOrderRow.getInt("O_ID");
 
                 // 2.2.2.1 Select all the items of the potentially related order.
-                ResultSet potentialOrderItems = session.execute(getItemsOfOrderQuery.bind()
+                ResultSet potentialOrderItems = session.execute(getItemsOfOrderQuery.boundStatementBuilder()
                         .setInt("ol_w_id", potentialOrderWid)
                         .setInt("ol_d_id", potentialOrderDid)
-                        .setInt("ol_o_id", potentialOrderId));
+                        .setInt("ol_o_id", potentialOrderId)
+                        .build());
 
                 // 2.2.2.2 Add the order in 2.2.2 to the result set if it contains at least one other distinct common
                 // item with the given order to the function.
@@ -162,10 +156,11 @@ public class RelatedCustomerTransaction extends BaseTransaction {
         HashSet<Customer> customers = new HashSet<>();
 
         for (Order order : orders) {
-            ResultSet customerIdRow = session.execute(getCustomerOfOrderQuery.bind()
+            ResultSet customerIdRow = session.execute(getCustomerOfOrderQuery.boundStatementBuilder()
                     .setInt("ol_w_id", order.getWarehouseId())
                     .setInt("ol_d_id", order.getDistrictId())
-                    .setInt("o_id", order.getId()));
+                    .setInt("o_id", order.getId())
+                    .build());
             customers.add(Customer.builder()
                     .warehouseId(order.getWarehouseId())
                     .districtId(order.getDistrictId())
