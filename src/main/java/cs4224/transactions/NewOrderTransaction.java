@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +35,8 @@ public class NewOrderTransaction extends BaseTransaction {
     PreparedStatement createOrderByCustomerQuery;
     PreparedStatement getWarehouseInfoQuery;
     PreparedStatement getCustomerInfoQuery;
+    PreparedStatement checkIfOrderLineExistsQuery;
+    PreparedStatement checkIfOrderByItemExistsQuery;
 
     @RequiredArgsConstructor
     @Accessors(fluent = true) @Getter
@@ -156,6 +159,20 @@ public class NewOrderTransaction extends BaseTransaction {
                         "FROM CUSTOMER " +
                         "WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id AND C_ID = :c_id"
         );
+
+        checkIfOrderLineExistsQuery = session.prepare(
+                "SELECT * " +
+                        "FROM ORDER_LINE " +
+                        "WHERE OL_W_ID = :ol_w_id AND OL_D_ID = :ol_d_id AND OL_O_ID = :ol_o_id " +
+                        "AND OL_NUMBER = :ol_number"
+        );
+
+        checkIfOrderByItemExistsQuery = session.prepare(
+                "SELECT * " +
+                        "FROM ORDER_BY_ITEM " +
+                        "WHERE I_ID = :i_id AND O_W_ID = :o_w_id AND O_D_ID = :o_d_id AND O_ID = :o_id " +
+                        "ALLOW FILTERING"
+        );
     }
 
     @Override
@@ -207,21 +224,27 @@ public class NewOrderTransaction extends BaseTransaction {
         // Spin loop is needed as the update query may fail if there are other queries that are updating the same row
         // at the same time.
         while (!isIncrementSuccessful) {
-            ResultSet resultSet = session.execute(getDNextOidQuery.bind()
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId));
-            Row row = resultSet.one();
+            try {
+                ResultSet resultSet = session.execute(getDNextOidQuery.boundStatementBuilder()
+                        .setInt("d_w_id", warehouseId)
+                        .setInt("d_id", districtId)
+                        .build());
+                Row row = resultSet.one();
 
-            dTax = row.getBigDecimal("D_TAX");
-            dNextOid = row.getInt("D_NEXT_O_ID");
+                dTax = row.getBigDecimal("D_TAX");
+                dNextOid = row.getInt("D_NEXT_O_ID");
 
-            ResultSet updateRow = session.execute(incrementDNextOidQuery.bind()
-                    .setInt("d_w_id", warehouseId)
-                    .setInt("d_id", districtId)
-                    .setInt("d_next_o_id", dNextOid)
-                    .setInt("d_new_o_id", dNextOid + 1));
+                ResultSet updateRow = session.execute(incrementDNextOidQuery.boundStatementBuilder()
+                        .setTimeout(Duration.ofSeconds(20))
+                        .setInt("d_w_id", warehouseId)
+                        .setInt("d_id", districtId)
+                        .setInt("d_next_o_id", dNextOid)
+                        .setInt("d_new_o_id", dNextOid + 1)
+                        .build());
 
-            isIncrementSuccessful = updateRow.wasApplied();
+                isIncrementSuccessful = updateRow.wasApplied();
+            } catch (Exception e) {
+            }
         }
 
         return new DistrictInfo(dNextOid, dTax);
@@ -247,7 +270,8 @@ public class NewOrderTransaction extends BaseTransaction {
 
     private void createNewOrder(int oid, List<NewOrderLine> newOrderLines, Instant now) {
         boolean isAllItemsLocal = isAllItemsLocal(newOrderLines);
-        session.execute(createOrderQuery.bind()
+        session.execute(createOrderQuery.boundStatementBuilder()
+                .setTimeout(Duration.ofSeconds(20))
                 .setInt("o_id", oid)
                 .setInt("o_d_id", districtId)
                 .setInt("o_w_id", warehouseId)
@@ -255,7 +279,8 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInstant("o_entry_d", now)
                 .setInt("o_carrier_id", nullCarrierId)
                 .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
-                .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0)));
+                .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0))
+                .build());
     }
 
     private boolean isAllItemsLocal(List<NewOrderLine> orderLines) {
@@ -263,12 +288,13 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     private void createNewOrderByCustomer(Instant now, int oid) {
-        session.execute(createOrderByCustomerQuery.bind()
+        session.execute(createOrderByCustomerQuery.boundStatementBuilder()
                 .setInt("c_w_id", warehouseId)
                 .setInt("c_d_id", districtId)
                 .setInt("c_id", customerId)
                 .setInstant("o_entry_d", now)
-                .setInt("o_id", oid));
+                .setInt("o_id", oid)
+                .build());
     }
 
     /**
@@ -283,7 +309,13 @@ public class NewOrderTransaction extends BaseTransaction {
         // Spin loop is needed as updateStock query may fail if there are other queries that are updating the same
         // row at the same time.
         while (!updateStockResult.isSuccessful) {
-            updateStockResult = updateStock(newOrderLine);
+            // This try-and-catch is needed to deal with "java.lang.IllegalArgumentException: Unsupported error code"
+            // exception that may be thrown sometimes. Not sure if the exception is because of executing the creating of
+            // order lines in parallel.
+            try {
+                updateStockResult = updateStock(newOrderLine);
+            } catch (Exception e) {
+            }
         }
 
         ItemResultInfo result = createNewOrderLine(newOrderLine, oid, orderLineNumber, updateStockResult.originalQuantity);
@@ -292,84 +324,153 @@ public class NewOrderTransaction extends BaseTransaction {
     }
 
     private UpdateStockResult updateStock(NewOrderLine newOrderLine) {
-         Row currentStockInfo = session.execute(getStockInfoQuery.bind()
-                 .setInt("s_w_id", newOrderLine.supplierWarehouseId)
-                 .setInt("s_i_id", newOrderLine.itemId))
-                 .one();
+        Row currentStockInfo = session.execute(getStockInfoQuery.boundStatementBuilder()
+                        .setInt("s_w_id", newOrderLine.supplierWarehouseId)
+                        .setInt("s_i_id", newOrderLine.itemId)
+                        .build())
+                .one();
 
-         BigDecimal originalQty = currentStockInfo.getBigDecimal("S_QUANTITY");
-         BigDecimal adjustedQty = originalQty.subtract(new BigDecimal(newOrderLine.quantity));
-         if (adjustedQty.compareTo(new BigDecimal(10)) < 0) {
-             adjustedQty.add(new BigDecimal(100));
-         }
+        BigDecimal originalQty = currentStockInfo.getBigDecimal("S_QUANTITY");
+        BigDecimal adjustedQty = originalQty.subtract(new BigDecimal(newOrderLine.quantity));
+        if (adjustedQty.compareTo(new BigDecimal(10)) < 0) {
+            adjustedQty.add(new BigDecimal(100));
+        }
 
-         boolean isSuccessful = session.execute(updateStockQuery.bind()
-                 .setBigDecimal("s_quantity", adjustedQty)
-                 .setBigDecimal("s_ytd",
-                         currentStockInfo.getBigDecimal("S_YTD").add(new BigDecimal(newOrderLine.quantity)))
-                 .setInt("new_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT") + 1)
-                 .setInt("s_remote_cnt", newOrderLine.supplierWarehouseId != warehouseId
-                         ? currentStockInfo.getInt("S_REMOTE_CNT") + 1
-                         : currentStockInfo.getInt("S_REMOTE_CNT"))
-                 .setInt("s_w_id", newOrderLine.supplierWarehouseId)
-                 .setInt("s_i_id", newOrderLine.itemId)
-                 .setInt("original_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT"))
-         ).wasApplied();
+        boolean isSuccessful = session.execute(updateStockQuery.boundStatementBuilder()
+                .setTimeout(Duration.ofSeconds(20))
+                .setBigDecimal("s_quantity", adjustedQty)
+                .setBigDecimal("s_ytd",
+                        currentStockInfo.getBigDecimal("S_YTD").add(new BigDecimal(newOrderLine.quantity)))
+                .setInt("new_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT") + 1)
+                .setInt("s_remote_cnt", newOrderLine.supplierWarehouseId != warehouseId
+                        ? currentStockInfo.getInt("S_REMOTE_CNT") + 1
+                        : currentStockInfo.getInt("S_REMOTE_CNT"))
+                .setInt("s_w_id", newOrderLine.supplierWarehouseId)
+                .setInt("s_i_id", newOrderLine.itemId)
+                .setInt("original_s_order_cnt", currentStockInfo.getInt("S_ORDER_CNT"))
+                .build()
+        ).wasApplied();
 
-         return new UpdateStockResult(originalQty, isSuccessful);
+        return new UpdateStockResult(originalQty, isSuccessful);
     }
 
     private ItemResultInfo createNewOrderLine(NewOrderLine newOrderLine, int orderId, int orderLineNumber,
                                               BigDecimal originalStockQuantity) {
-        Row itemInfo = session.execute(getItemInfoQuery.bind()
-                .setInt("i_id", newOrderLine.itemId))
-                .one();
+        boolean successful = false;
+        boolean retry = false;
+        ItemResultInfo result = null;
 
-        BigDecimal itemAmount = new BigDecimal(newOrderLine.quantity).multiply(itemInfo.getBigDecimal("I_PRICE"));
+        // This while loop is needed to deal with "java.lang.IllegalArgumentException: Unsupported error code"
+        // exception that may be thrown sometimes. Not sure if the exception is because of executing the creating of
+        // order lines in parallel.
+        while (!successful) {
+            try {
+                Row itemInfo = session.execute(getItemInfoQuery.boundStatementBuilder()
+                                .setTimeout(Duration.ofSeconds(30))
+                                .setInt("i_id", newOrderLine.itemId)
+                                .build())
+                        .one();
 
-        session.execute(createOrderLineQuery.bind()
-                .setInt("ol_w_id", warehouseId)
-                .setInt("ol_d_id", districtId)
-                .setInt("ol_o_id", orderId)
-                .setInt("ol_number", orderLineNumber)
-                .setInt("ol_i_id", newOrderLine.itemId)
-                .setInt("ol_supply_w_id", newOrderLine.supplierWarehouseId)
-                .setBigDecimal("ol_quantity", new BigDecimal(newOrderLine.quantity))
-                .setBigDecimal("ol_amount", itemAmount)
-                .setInstant("ol_delivery_d", null)
-                .setString("ol_dist_info", String.format("S_DIST_%d", districtId))
-        );
+                BigDecimal itemAmount = new BigDecimal(newOrderLine.quantity).multiply(itemInfo.getBigDecimal("I_PRICE"));
 
-        return new ItemResultInfo(
-                newOrderLine.itemId,
-                itemInfo.getString("I_NAME"),
-                newOrderLine.supplierWarehouseId,
-                newOrderLine.quantity,
-                itemAmount,
-                originalStockQuantity
-        );
+                result = new ItemResultInfo(
+                        newOrderLine.itemId,
+                        itemInfo.getString("I_NAME"),
+                        newOrderLine.supplierWarehouseId,
+                        newOrderLine.quantity,
+                        itemAmount,
+                        originalStockQuantity
+                );
+
+                if (retry) {
+                    Row row = session.execute(checkIfOrderLineExistsQuery.boundStatementBuilder()
+                                    .setInt("ol_w_id", warehouseId)
+                                    .setInt("ol_d_id", districtId)
+                                    .setInt("ol_o_id", orderId)
+                                    .setInt("ol_number", orderLineNumber)
+                                    .build())
+                            .one();
+                    // The given order line exists.
+                    if (row != null) {
+                        return result;
+                    }
+                }
+
+                session.execute(createOrderLineQuery.boundStatementBuilder()
+                        .setTimeout(Duration.ofSeconds(30))
+                        .setInt("ol_w_id", warehouseId)
+                        .setInt("ol_d_id", districtId)
+                        .setInt("ol_o_id", orderId)
+                        .setInt("ol_number", orderLineNumber)
+                        .setInt("ol_i_id", newOrderLine.itemId)
+                        .setInt("ol_supply_w_id", newOrderLine.supplierWarehouseId)
+                        .setBigDecimal("ol_quantity", new BigDecimal(newOrderLine.quantity))
+                        .setBigDecimal("ol_amount", itemAmount)
+                        .setInstant("ol_delivery_d", null)
+                        .setString("ol_dist_info", String.format("S_DIST_%d", districtId))
+                        .build()
+                );
+
+                successful = true;
+            } catch (Exception e) {
+                retry = true;
+            }
+        }
+
+        return result;
     }
 
     private void createNewOrderByItem(NewOrderLine newOrderLine, int oid) {
-        session.execute(createOrderByItemQuery.bind()
-                .setInt("i_id", newOrderLine.itemId)
-                .setInt("o_w_id", warehouseId)
-                .setInt("o_d_id", districtId)
-                .setInt("o_id", oid));
+        boolean successful = false;
+        boolean retry = false;
+
+        // This while loop is needed to deal with "java.lang.IllegalArgumentException: Unsupported error code"
+        // exception that may be thrown sometimes. Not sure if the exception is because of executing the creating of
+        // order lines in parallel.
+        while (!successful) {
+            try {
+                if (retry) {
+                    Row row = session.execute(checkIfOrderByItemExistsQuery.boundStatementBuilder()
+                            .setInt("i_id", newOrderLine.itemId)
+                            .setInt("o_w_id", warehouseId)
+                            .setInt("o_d_id", districtId)
+                            .setInt("o_id", oid)
+                            .build()
+                    ).one();
+
+                    if (row != null) {
+                        return;
+                    }
+                }
+
+                session.execute(createOrderByItemQuery.boundStatementBuilder()
+                        .setInt("i_id", newOrderLine.itemId)
+                        .setInt("o_w_id", warehouseId)
+                        .setInt("o_d_id", districtId)
+                        .setInt("o_id", oid)
+                        .build());
+
+                successful = true;
+            } catch (Exception e) {
+                retry = true;
+            }
+        }
     }
 
     private BigDecimal getWarehouseTax() {
-        return session.execute(getWarehouseInfoQuery.bind()
-                .setInt("w_id", warehouseId))
+        return session.execute(getWarehouseInfoQuery.boundStatementBuilder()
+                        .setInt("w_id", warehouseId)
+                        .build())
                 .one()
                 .getBigDecimal("W_TAX");
     }
 
     private CustomerInfo getCustomerInfo() {
-        Row row = session.execute(getCustomerInfoQuery.bind()
-                .setInt("c_w_id", warehouseId)
-                .setInt("c_d_id", districtId)
-                .setInt("c_id", customerId))
+        Row row = session.execute(getCustomerInfoQuery.boundStatementBuilder()
+                        .setInt("c_w_id", warehouseId)
+                        .setInt("c_d_id", districtId)
+                        .setInt("c_id", customerId)
+                        .build())
                 .one();
 
         return new CustomerInfo(
@@ -396,7 +497,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .forEach(i -> {
                     ItemResultInfo info = summary.itemResultInfoList.get(i);
                     System.out.printf("%d. item number: %d, item name: %s, supplier warehouse id: %d, " +
-                            "quantity: %d, ol_amount: %s, s_quantity: %s\n",
+                                    "quantity: %d, ol_amount: %s, s_quantity: %s\n",
                             i, info.itemId, info.itemName, info.supplierWarehouseId, info.orderQuantity, info.amount,
                             info.orderQuantity);
                 });
