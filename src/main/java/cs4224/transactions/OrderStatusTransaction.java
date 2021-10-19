@@ -44,7 +44,7 @@ public class OrderStatusTransaction extends BaseTransaction {
             String queryGetCustomerLastOrder = String.format(
                     "SELECT O_ID, O_ENTRY_D, O_CARRIER_ID FROM order_by_customer " +
                     "WHERE C_W_ID = %d and C_D_ID = %d and C_ID = %d " +
-                    "ORDER BY O_ENTRY_D DESC, O_ID DESC LIMIT 1",
+                    "ORDER BY O_ID DESC LIMIT 1",
                     warehouseId, districtId, customerId);
 
             Row lastOrder = session.execute(queryGetCustomerLastOrder).one();
