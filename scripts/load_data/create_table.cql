@@ -129,11 +129,11 @@ CREATE TABLE order_by_customer (
     C_W_ID int,
     C_D_ID int,
     C_ID int,
-    O_ENTRY_D timestamp,
     O_ID int,
+    O_ENTRY_D timestamp,
     O_CARRIER_ID int,
-    PRIMARY KEY ((C_W_ID, C_D_ID, C_ID), O_ENTRY_D, O_ID))
-WITH CLUSTERING ORDER BY (O_ENTRY_D DESC, O_ID DESC);
+    PRIMARY KEY ((C_W_ID, C_D_ID, C_ID), O_ID)
+) WITH CLUSTERING ORDER BY O_ID DESC;
 
 DROP TABLE IF EXISTS order_by_item;
 CREATE TABLE order_by_item (

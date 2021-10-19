@@ -139,8 +139,8 @@ public class NewOrderTransaction extends BaseTransaction {
         );
 
         createOrderByCustomerQuery = session.prepare(
-                "INSERT INTO ORDER_BY_CUSTOMER (C_W_ID, C_D_ID, C_ID, O_ENTRY_D, O_ID, O_CARRIER_ID) " +
-                        "VALUES (:c_w_id, :c_d_id, :c_id, :o_entry_d, :o_id, :o_carrier_id)"
+                "INSERT INTO ORDER_BY_CUSTOMER (C_W_ID, C_D_ID, C_ID, O_ID, O_ENTRY_D, O_CARRIER_ID) " +
+                        "VALUES (:c_w_id, :c_d_id, :c_id, :o_id, :o_entry_d, :o_carrier_id)"
         );
 
         createOrderByItemQuery = session.prepare(
@@ -292,8 +292,8 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("c_w_id", warehouseId)
                 .setInt("c_d_id", districtId)
                 .setInt("c_id", customerId)
-                .setInstant("o_entry_d", now)
                 .setInt("o_id", oid)
+                .setInstant("o_entry_d", now)
                 .setInt("o_carrier_id", nullCarrierId)
                 .build());
     }
