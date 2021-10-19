@@ -5,6 +5,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 
 import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -51,6 +52,7 @@ public class DeliveryTransaction extends BaseTransaction{
             if (row != null) {
                 int orderId = row.getInt("O_ID");
                 int customerId = row.getInt("O_C_ID");
+                Instant orderEntryTime = row.getInstant("O_ENTRY_D");
 
                 //b) Update order X O_CARRIER_ID
                 String queryB = String.format(
@@ -63,11 +65,20 @@ public class DeliveryTransaction extends BaseTransaction{
 
                 //TODO: turn all statements in this file into PreparedStatement
                 session.execute(
-                        String.format(
+                        session.prepare(
                                 "UPDATE order_by_customer " +
-                                "SET O_CARRIER_ID = %d " +
-                                "WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d",
-                                carrierId, warehouseId, districtNo, customerId)
+                                        "SET O_CARRIER_ID = :o_carrier_id " +
+                                        "WHERE C_W_ID = :c_w_id AND C_D_ID = :c_d_id AND C_ID = :c_id " +
+                                        "AND O_ENTRY_D = :o_entry_d AND O_ID = :o_id"
+                                )
+                                .boundStatementBuilder()
+                                .setInt("o_carrier_id", carrierId)
+                                .setInt("c_w_id", warehouseId)
+                                .setInt("c_d_id", districtNo)
+                                .setInt("c_id", customerId)
+                                .setInstant("o_entry_d", orderEntryTime)
+                                .setInt("o_id", orderId)
+                                .build()
                 );
 
 
