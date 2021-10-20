@@ -27,10 +27,9 @@ public class PopularItemTransactionTest {
         final OrderDao orderDao = new OrderMapperBuilder(session).build().dao(ORDER_TABLE);
         final OrderLineDao orderLineDao = new OrderLineMapperBuilder(session).build().dao(ORDER_LINE_TABLE);
         final ItemDao itemDao = new ItemMapperBuilder(session).build().dao(ITEM_TABLE);
-        final OrderByItemDao orderByItemDao = new OrderItemMapperBuilder(session).build().dao(ORDER_BY_ITEM_TABLE);
 
         PopularItemTransaction transaction = new PopularItemTransaction(session, districtDao, customerDao, orderDao,
-                orderLineDao, itemDao, orderByItemDao);
+                orderLineDao, itemDao);
         transaction.execute(new String[0], new String[]{"I","8","1","27"});
     }
 }

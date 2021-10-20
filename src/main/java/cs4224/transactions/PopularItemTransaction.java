@@ -16,18 +16,15 @@ public class PopularItemTransaction extends BaseTransaction {
     private final OrderDao orderDao;
     private final OrderLineDao orderLineDao;
     private final ItemDao itemDao;
-    private final OrderByItemDao orderByItemDao;
 
     public PopularItemTransaction(CqlSession session, DistrictDao districtDao, CustomerDao customerDao,
-                                  OrderDao orderDao, OrderLineDao orderLineDao, ItemDao itemDao,
-                                  OrderByItemDao orderByItemDao) {
+                                  OrderDao orderDao, OrderLineDao orderLineDao, ItemDao itemDao) {
         super(session);
         this.districtDao = districtDao;
         this.customerDao = customerDao;
         this.orderDao = orderDao;
         this.orderLineDao = orderLineDao;
         this.itemDao = itemDao;
-        this.orderByItemDao = orderByItemDao;
     }
 
     @Override
@@ -59,17 +56,17 @@ public class PopularItemTransaction extends BaseTransaction {
                     Customer.map(customerDao.getNameById(warehouseId, districtId, order.getCustomerId())));
         });
 
-
         final Set<Integer> items = new HashSet<>(); // Set of all Items in last L orders
         final Map<Integer, Long> itemNumOrders = new ConcurrentHashMap<>(); // Item -> Num of Orders
         final Map<Integer, String> itemName = new ConcurrentHashMap<>(); // Item -> Item Name
 
+        orderItems.forEach((order, oItems) -> {
+            oItems.forEach(item -> itemNumOrders.put(item, itemNumOrders.getOrDefault(item, 0L)+1));
+        });
+
         orderItems.values().forEach(items::addAll);
-        final List<Integer> orderIds = orders.stream()
-                .map(Order::getId).collect(Collectors.toList()); // List of L orderIds
 
         items.parallelStream().forEach(item -> {
-            itemNumOrders.put(item, orderByItemDao.getCountByItemId(warehouseId, districtId, item, orderIds));
             itemName.put(item, getItemName(item));
         });
 
