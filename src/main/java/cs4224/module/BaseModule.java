@@ -87,11 +87,6 @@ public class BaseModule extends AbstractModule {
         return new ItemMapperBuilder(session).build().dao(ITEM_TABLE);
     }
 
-    @Provides
-    @Inject
-    public OrderByItemDao provideOrderByItemDao(CqlSession session) {
-        return new OrderItemMapperBuilder(session).build().dao(ORDER_BY_ITEM_TABLE);
-    }
 
     @Provides
     @Inject
@@ -138,10 +133,8 @@ public class BaseModule extends AbstractModule {
     @Inject
     public PopularItemTransaction providePopularItemTransaction(CqlSession session, DistrictDao districtDao,
                                                                 CustomerDao customerDao, OrderDao orderDao,
-                                                                OrderLineDao orderLineDao, ItemDao itemDao,
-                                                                OrderByItemDao orderByItemDao) {
-        return new PopularItemTransaction(session, districtDao, customerDao, orderDao, orderLineDao, itemDao,
-                orderByItemDao);
+                                                                OrderLineDao orderLineDao, ItemDao itemDao) {
+        return new PopularItemTransaction(session, districtDao, customerDao, orderDao, orderLineDao, itemDao);
     }
 
     @Provides

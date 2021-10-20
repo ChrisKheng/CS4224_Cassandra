@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Driver {
     public static long numQueries = 0;
+    public static long skippedTransactions = 0;
 
     private final NewOrderTransaction newOrderTransaction;
     private final PaymentTransaction paymentTransaction;
@@ -97,7 +98,12 @@ public class Driver {
             System.out.println("\n======================================================================");
             // System.out.printf("Transaction ID: %d\n", timeRecord.size());
             System.out.printf("Transaction ID: %d | Type: %s\n", numQueries, transaction.getType());
-            transaction.execute(lines, parameters);
+            try {
+                transaction.execute(lines, parameters);
+            } catch (Exception ex) {
+                System.out.println("Transaction Skipped!");
+                skippedTransactions++;
+            }
             lEnd = System.nanoTime();
             lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
             timeRecord.add(lapse);
@@ -106,6 +112,7 @@ public class Driver {
         }
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
+        System.out.printf("Total Skipped Transactions: %d\n", skippedTransactions);
         Statistics.computeTimeStatistics(timeRecord, totalLapse);
         scanner.close();
     }

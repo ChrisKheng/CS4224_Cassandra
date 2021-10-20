@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static cs4224.utils.Constants.MAX_RETRIES;
+
 public class PaymentTransaction extends BaseTransaction {
     private static final Logger LOG = LoggerFactory.getLogger(PaymentTransaction.class);
     private final ExecutorService executorService;
@@ -70,52 +72,70 @@ public class PaymentTransaction extends BaseTransaction {
         return parallelExecutor.execute();
     }
 
-    private Warehouse updateWarehouse(final Warehouse warehouse, final int customerWarehouseId, final double paymentAmount) {
+    private Warehouse updateWarehouse(Warehouse warehouse, final int customerWarehouseId, final double paymentAmount) {
         final Warehouse updatedWarehouse = new Warehouse();
-        updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         Boolean isApplied = false;
-        while (!isApplied) {
+        int numRetries = 0;
+        while (numRetries < MAX_RETRIES && !isApplied) {
             try {
+                updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
                 isApplied = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
                         warehouse.getAmountPaidYTD());
             } catch (Exception ex) {
-                LOG.error("Error while updating warehouse: ", ex);
+                numRetries++;
+                warehouse = Warehouse.map(warehouseDao.getById(customerWarehouseId));
+                if (numRetries == MAX_RETRIES) {
+                    LOG.error("Error while updating warehouse: ", ex);
+                    throw new RuntimeException("Error while updating customer: ", ex);
+                }
             }
         }
         warehouse.setAmountPaidYTD(updatedWarehouse.getAmountPaidYTD());
         return warehouse;
     }
 
-    private District updateDistrict(final District district, final int customerWarehouseId, final int customerDistrictId,
+    private District updateDistrict(District district, final int customerWarehouseId, final int customerDistrictId,
                                     final double paymentAmount) {
         final District updatedDistrict = new District();
-        updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
         Boolean isApplied = false;
-        while (!isApplied) {
+        int numRetries = 0;
+        while (numRetries < MAX_RETRIES && !isApplied) {
             try {
+                updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
                 isApplied = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
                         district.getAmountPaidYTD());
             } catch (Exception ex) {
-                LOG.error("Error while updating district: ", ex);
+                numRetries++;
+                district = District.map(districtDao.getById(customerWarehouseId, customerDistrictId));
+                if (numRetries == MAX_RETRIES) {
+                    LOG.error("Error while updating district: ", ex);
+                    throw new RuntimeException("Error while updating customer: ", ex);
+                }
             }
         }
         district.setAmountPaidYTD(updatedDistrict.getAmountPaidYTD());
         return district;
     }
 
-    private Customer updateCustomer(final Customer customer, final int customerWarehouseId, final int customerDistrictId,
+    private Customer updateCustomer(Customer customer, final int customerWarehouseId, final int customerDistrictId,
                                     final int customerId, final double paymentAmount) {
         final Customer updatedCustomer = new Customer();
-        updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
-                .setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount))
-                .setNumPayments(customer.getNumPayments() + 1);
+        int numRetries = 0;
         Boolean isApplied = false;
-        while (!isApplied) {
+        while (numRetries < MAX_RETRIES && !isApplied) {
             try {
+                updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
+                        .setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount))
+                        .setNumPayments(customer.getNumPayments() + 1);
                 isApplied = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                         customerId, customer.getPaymentYTD());
             } catch (Exception ex) {
-                LOG.error("Error while updating customer: ", ex);
+                numRetries++;
+                customer = Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId));
+                if (numRetries == MAX_RETRIES) {
+                    LOG.error("Error while updating customer: ", ex);
+                    throw new RuntimeException("Error while updating customer: ", ex);
+                }
             }
         }
         customer.setBalance(updatedCustomer.getBalance()).setPaymentYTD(updatedCustomer.getPaymentYTD())
