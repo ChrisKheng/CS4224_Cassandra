@@ -125,7 +125,7 @@ public class PaymentTransaction extends BaseTransaction {
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
-                        .setPaymentYTD((float) (customer.getPaymentYTD() - paymentAmount))
+                        .setPaymentYTD((float) (customer.getPaymentYTD() + paymentAmount))
                         .setNumPayments(customer.getNumPayments() + 1);
                 isApplied = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                         customerId, customer.getPaymentYTD());
