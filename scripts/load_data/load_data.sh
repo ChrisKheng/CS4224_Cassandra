@@ -16,7 +16,7 @@ awk -F "," '{if ($6 == "null") {$6 = ""}; OFS = ","; print}' ${archive_name}/dat
 awk -F "," '{if ($5 == "null") {$5 = "-1"}; OFS=","; print}' ${archive_name}/data_files/order.csv > ${archive_name}/data_files/order-clean.csv
 
 # For order_by_customer
-awk -F "," '{OFS=","; print $1, $2, $4, $8, $3, $5}' ${archive_name}/data_files/order-clean.csv > ${archive_name}/data_files/order-by-customer.csv
+awk -F "," '{OFS=","; print $1, $2, $4, $3, $8, $5}' ${archive_name}/data_files/order-clean.csv > ${archive_name}/data_files/order-by-customer.csv
 
 # For order_by_item
 awk -F "," '{OFS=","; print $5, $1, $2, $3}' ${archive_name}/data_files/order-line.csv | uniq > ${archive_name}/data_files/order-by-item.csv
