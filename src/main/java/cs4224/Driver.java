@@ -96,7 +96,6 @@ public class Driver {
 
             lStart = System.nanoTime();
             System.out.println("\n======================================================================");
-            // System.out.printf("Transaction ID: %d\n", timeRecord.size());
             System.out.printf("Transaction ID: %d | Type: %s\n", numQueries, transaction.getType());
             try {
                 transaction.execute(lines, parameters);

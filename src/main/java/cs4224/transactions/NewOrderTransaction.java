@@ -190,7 +190,6 @@ public class NewOrderTransaction extends BaseTransaction {
         processNewOrder(oid, now, newOrderLines);
 
         List<ItemResultInfo> orderLinesResult = IntStream.range(0, newOrderLines.size())
-                .parallel()
                 .mapToObj(i -> processNewOrderLine(newOrderLines.get(i), oid, i+1))
                 .collect(Collectors.toList());
 
