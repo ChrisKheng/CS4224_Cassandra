@@ -81,14 +81,15 @@ public class PaymentTransaction extends BaseTransaction {
                 updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
                 isApplied = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
                         warehouse.getAmountPaidYTD());
-            } catch (Exception ex) {
-                numRetries++;
+            } catch (Exception ignored) { }
+            if (!isApplied) {
                 warehouse = Warehouse.map(warehouseDao.getById(customerWarehouseId));
-                if (numRetries == MAX_RETRIES) {
-                    LOG.error("Error while updating warehouse: ", ex);
-                    throw new RuntimeException("Error while updating customer: ", ex);
-                }
+                numRetries++;
             }
+        }
+        if (numRetries == MAX_RETRIES) {
+            LOG.error("Error while updating warehouse");
+            throw new RuntimeException("Error while updating customer");
         }
         warehouse.setAmountPaidYTD(updatedWarehouse.getAmountPaidYTD());
         return warehouse;
@@ -104,14 +105,15 @@ public class PaymentTransaction extends BaseTransaction {
                 updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
                 isApplied = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
                         district.getAmountPaidYTD());
-            } catch (Exception ex) {
-                numRetries++;
+            } catch (Exception ignored) { }
+            if (!isApplied) {
                 district = District.map(districtDao.getById(customerWarehouseId, customerDistrictId));
-                if (numRetries == MAX_RETRIES) {
-                    LOG.error("Error while updating district: ", ex);
-                    throw new RuntimeException("Error while updating customer: ", ex);
-                }
+                numRetries++;
             }
+        }
+        if (numRetries == MAX_RETRIES) {
+            LOG.error("Error while updating district");
+            throw new RuntimeException("Error while updating customer");
         }
         district.setAmountPaidYTD(updatedDistrict.getAmountPaidYTD());
         return district;
@@ -129,14 +131,16 @@ public class PaymentTransaction extends BaseTransaction {
                         .setNumPayments(customer.getNumPayments() + 1);
                 isApplied = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                         customerId, customer.getPaymentYTD());
-            } catch (Exception ex) {
-                numRetries++;
-                customer = Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId));
-                if (numRetries == MAX_RETRIES) {
-                    LOG.error("Error while updating customer: ", ex);
-                    throw new RuntimeException("Error while updating customer: ", ex);
-                }
+            } catch (Exception ignored) {
             }
+            if (!isApplied) {
+                customer = Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId));
+                numRetries++;
+            }
+        }
+        if (numRetries == MAX_RETRIES) {
+            LOG.error("Error while updating customer");
+            throw new RuntimeException("Error while updating customer");
         }
         customer.setBalance(updatedCustomer.getBalance()).setPaymentYTD(updatedCustomer.getPaymentYTD())
                 .setNumPayments(updatedCustomer.getNumPayments());
