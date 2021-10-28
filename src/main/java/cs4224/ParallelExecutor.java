@@ -1,6 +1,5 @@
 package cs4224;
 
-import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,19 +26,22 @@ public class ParallelExecutor {
         return this;
     }
 
-    @SneakyThrows
     public List<Object> execute() {
-        List<Future<Object>> futures = executorService.invokeAll(tasks);
-        List<Object> taskResult = futures.stream().map(future -> {
-            try {
-                return future.get();
-            } catch (InterruptedException | ExecutionException e) {
-                LOG.error("Error while executing parallel tasks: ", e);
-                throw new RuntimeException(e);     // For debugging purpose
-            }
-        }).collect(Collectors.toList());
-
-        this.tasks = new ArrayList<>();
-        return taskResult;
+        try {
+            List<Future<Object>> futures = executorService.invokeAll(tasks);
+            List<Object> taskResult = futures.stream().map(future -> {
+                try {
+                    return future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    LOG.error("Error while executing parallel tasks: ", e);
+                    throw new RuntimeException(e);
+                }
+            }).collect(Collectors.toList());
+            this.tasks = new ArrayList<>();
+            return taskResult;
+        } catch (Exception ex) {
+            this.tasks = new ArrayList<>();
+            throw new RuntimeException(ex);
+        }
     }
 }
