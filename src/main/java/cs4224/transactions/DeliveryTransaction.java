@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 
+import java.math.BigDecimal;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
@@ -65,20 +66,8 @@ public class DeliveryTransaction extends BaseTransaction{
     public void execute(String[] dataLines, String[] parameters) {
         final int warehouseId = Integer.parseInt(parameters[1]);
         final int carrierId = Integer.parseInt(parameters[2]);
-        /*
-            Given W_ID, CARRIER_ID
-            For DISTRICT_NO from 1 to 10:
-                a Find the oldest yet-to-be-delivered order -> order X , customer C
-                b Update the order's carrier info in X
-                c Update all the order-lines in X
-                d Update customer C:
-                    Increment C_BALANCE
-                    Increment C_DELIVERY_CNT
-         */
-
 
         for (int districtNo = 1; districtNo <= NO_OF_DISTRICTS; districtNo++) {
-
             Row row = session.execute(
                     getOldestYtdOrderQuery
                             .boundStatementBuilder()
@@ -91,7 +80,6 @@ public class DeliveryTransaction extends BaseTransaction{
                 int orderId = row.getInt("O_ID");
                 int customerId = row.getInt("O_C_ID");
 
-                //b) Update order X O_CARRIER_ID
                 String queryB = String.format(
                         "UPDATE orders " +
                         "SET O_CARRIER_ID = %d " +
@@ -113,7 +101,6 @@ public class DeliveryTransaction extends BaseTransaction{
 
                 Double olAmount = 0.0;
                 List<Integer> ol_numbers = new ArrayList<>();
-
                 List<Row> order_lines = session.execute(
                         getOrderLinesQuery
                             .boundStatementBuilder()
@@ -128,15 +115,8 @@ public class DeliveryTransaction extends BaseTransaction{
                     ol_numbers.add(ol.getInt("OL_NUMBER"));
                 }
 
-                //c) Update all the order-lines in X
                 Instant d = (new Date()).toInstant();
                 for (int ol_number : ol_numbers) {
-//                    String queryC = String.format(
-//                            "UPDATE order_line " +
-//                                    "SET OL_DELIVERY_D = '%s' " +
-//                                    "WHERE OL_W_ID = %d and OL_D_ID = %d and OL_O_ID = %d and OL_NUMBER = %d",
-//                            d, warehouseId, districtNo, orderId, ol_number);
-
                     session.execute(
                             updateOrderLinesQuery
                                 .boundStatementBuilder()
@@ -148,12 +128,6 @@ public class DeliveryTransaction extends BaseTransaction{
                                 .build()
                             );
                 }
-                //d) Update customer C
-//                String queryDFindCustomer = String.format(
-//                        "SELECT C_BALANCE, C_DELIVERY_CNT " +
-//                        "FROM customer " +
-//                        "WHERE C_W_ID = %d and C_D_ID = %d and C_ID = %d",
-//                        warehouseId, districtNo, customerId);
                 Row cust = session.execute(
                         getCustomerDetailsQuery
                             .boundStatementBuilder()
@@ -163,34 +137,24 @@ public class DeliveryTransaction extends BaseTransaction{
                             .build()
                         ).one();
 
-
                 Double newAmount = cust.getBigDecimal("C_BALANCE").doubleValue() + olAmount;
                 int newDelCnt = cust.getInt("C_DELIVERY_CNT") + 1;
 
-//                String queryDUpdateCustomer = String.format(
-//                        "UPDATE customer " +
-//                        "SET C_BALANCE = %f, C_DELIVERY_CNT = %d " +
-//                        "WHERE C_W_ID = %d and C_D_ID = %d and C_ID = %d",
-//                        newAmount, newDelCnt, warehouseId, districtNo, customerId);
-
-                session.execute(
-                        updateCustomerDetailsQuery
-                            .boundStatementBuilder()
-                            .setDouble("c_balance", newAmount)
-                            .setInt("c_delivery_cnt", newDelCnt)
-                            .setInt("c_w_id", warehouseId)
-                            .setInt("c_d_id", districtNo)
-                            .setInt("c_id", customerId)
-                            .build()
-                );
-                //System.out.printf("Will update using query %s\n", queryDUpdateCustomer);
+                boolean updateWasSuccessful = false;
+                while (!updateWasSuccessful) {
+                    updateWasSuccessful = session.execute(
+                            updateCustomerDetailsQuery
+                                    .boundStatementBuilder()
+                                    .setBigDecimal("c_balance", BigDecimal.valueOf(newAmount))
+                                    .setInt("c_delivery_cnt", newDelCnt)
+                                    .setInt("c_w_id", warehouseId)
+                                    .setInt("c_d_id", districtNo)
+                                    .setInt("c_id", customerId)
+                                    .build()
+                    ).wasApplied();
+                }
             }
-
         }
-
-        //System.out.printf("Running Delivery Transaction with W_ID=%d , CAREER_ID= %d \n", warehouseId, carrierId);
-        Arrays.stream(dataLines).forEach(System.out::println);
-
     }
 
     @Override
