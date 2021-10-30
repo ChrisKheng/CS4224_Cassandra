@@ -7,6 +7,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import java.math.BigDecimal;
 import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -145,6 +146,7 @@ public class DeliveryTransaction extends BaseTransaction{
                     updateWasSuccessful = session.execute(
                             updateCustomerDetailsQuery
                                     .boundStatementBuilder()
+                                    .setTimeout(Duration.ofSeconds(20))
                                     .setBigDecimal("c_balance", BigDecimal.valueOf(newAmount))
                                     .setInt("c_delivery_cnt", newDelCnt)
                                     .setInt("c_w_id", warehouseId)
