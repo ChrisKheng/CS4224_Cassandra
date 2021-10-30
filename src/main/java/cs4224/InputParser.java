@@ -9,7 +9,7 @@ public class InputParser {
     private HelpFormatter helpFormatter = new HelpFormatter();
 
     public InputParser() {
-        addOption("t", "task", "Type of task", true, true);
+        addOption("t", "task", "Type of task: transaction or dbstate", true, true);
         addOption("k", "keyspace", "Keyspace name", true, true);
         addOption("i", "ip", "IP address of cassandra cluster", true, false);
         addOption("p", "port", "Port of cassandra cluster", true, false);
