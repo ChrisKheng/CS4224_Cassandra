@@ -104,7 +104,7 @@ public class DeliveryTransaction extends BaseTransaction{
                             .build())
                     .wasApplied();
             if (!isUpdateSuccessful) {
-                System.out.printf("Skip order (%d, %d, %d) as it was processed by another delivery transaction",
+                System.out.printf("Skip order (%d, %d, %d) as it was processed by another delivery transaction\n",
                         warehouseId, districtNo, orderId);
                 continue;
             }
@@ -161,20 +161,19 @@ public class DeliveryTransaction extends BaseTransaction{
                                 .build()
                 ).one();
 
-                Double originalAmount = cust.getBigDecimal("C_BALANCE").doubleValue();
-                Double newAmount = originalAmount + olAmount;
+                Double newAmount = cust.getBigDecimal("C_BALANCE").doubleValue() + olAmount;
                 int newDelCnt = cust.getInt("C_DELIVERY_CNT") + 1;
 
                 updateWasSuccessful = session.execute(
                         updateCustomerDetailsQuery
                                 .boundStatementBuilder()
-                                .setTimeout(Duration.ofSeconds(20))
+                                .setTimeout(Duration.ofSeconds(40))
                                 .setBigDecimal("c_balance", BigDecimal.valueOf(newAmount))
                                 .setInt("c_delivery_cnt", newDelCnt)
                                 .setInt("c_w_id", warehouseId)
                                 .setInt("c_d_id", districtNo)
                                 .setInt("c_id", customerId)
-                                .setBigDecimal("original_c_balance", new BigDecimal(originalAmount))
+                                .setBigDecimal("original_c_balance", cust.getBigDecimal("C_BALANCE"))
                                 .build()
                 ).wasApplied();
             }
