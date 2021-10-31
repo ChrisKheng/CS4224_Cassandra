@@ -44,8 +44,7 @@ public class Driver {
         Scanner scanner = new Scanner(queryTxt);
         BaseTransaction transaction;
 
-        // TODO: Record the timings and pass to Statistics.
-        List<Long> timeRecord = new ArrayList<>();
+        Statistics calculator = Statistics.getStatisticsCalculator();
 
         long start, end, lStart, lEnd, lapse, totalLapse;
 
@@ -100,19 +99,20 @@ public class Driver {
             try {
                 transaction.execute(lines, parameters);
             } catch (Exception ex) {
+                System.out.println(ex);
                 System.out.println("Transaction Skipped!");
                 skippedTransactions++;
             }
             lEnd = System.nanoTime();
             lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
-            timeRecord.add(lapse);
+            calculator.ingestTime(transaction.getType(), lapse);
             System.out.printf("Time taken: %d\n", lapse);
             System.out.println("======================================================================");
         }
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
         System.out.printf("Total Skipped Transactions: %d\n", skippedTransactions);
-        Statistics.computeTimeStatistics(timeRecord, totalLapse);
+        calculator.computeTimeStatistics(totalLapse);
         scanner.close();
     }
 }
