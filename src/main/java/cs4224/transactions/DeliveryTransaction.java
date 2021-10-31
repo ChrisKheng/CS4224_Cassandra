@@ -2,6 +2,7 @@ package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import cs4224.utils.Constants;
 
@@ -13,8 +14,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-public class DeliveryTransaction extends BaseTransaction{
+public class DeliveryTransaction extends BaseTransaction {
+    private static final int NO_OF_DISTRICTS = 10;
+    private static final Format formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     PreparedStatement getOldestYtdOrderQuery;
     PreparedStatement updateOrderQuery;
     PreparedStatement updateOrderByCustomerQuery;
@@ -22,9 +27,6 @@ public class DeliveryTransaction extends BaseTransaction{
     PreparedStatement updateOrderLinesQuery;
     PreparedStatement getCustomerDetailsQuery;
     PreparedStatement updateCustomerDetailsQuery;
-
-    private static final int NO_OF_DISTRICTS = 10;
-    private static final Format formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     public DeliveryTransaction(CqlSession session) {
         super(session);
@@ -76,51 +78,43 @@ public class DeliveryTransaction extends BaseTransaction{
         final int warehouseId = Integer.parseInt(parameters[1]);
         final int carrierId = Integer.parseInt(parameters[2]);
 
-        for (int districtNo = 1; districtNo <= NO_OF_DISTRICTS; districtNo++) {
-            Row row = session.execute(
-                    getOldestYtdOrderQuery
-                            .boundStatementBuilder()
-                            .setInt("o_w_id", warehouseId)
-                            .setInt("o_d_id", districtNo)
-                            .build()
-            ).one();
+        List<Integer> districts = IntStream.rangeClosed(1, NO_OF_DISTRICTS).boxed().collect(Collectors.toList());
+
+        districts.parallelStream().forEach(districtNo -> {
+            Row row = getLatestOldestYtdOrder(warehouseId, districtNo);
 
             if (row == null) {
-                System.out.printf("Skip district (%d, %d) as there is no undelivered transaction\n",
+                System.out.printf("Skip district (%d, %d) as there is no undelivered order\n",
                         warehouseId, districtNo);
-                continue;
+                return;
             }
-
             int orderId = row.getInt("O_ID");
             int customerId = row.getInt("O_C_ID");
 
-            boolean isUpdateSuccessful = session.execute(updateOrderQuery
-                            .boundStatementBuilder()
-                            .setInt("o_carrier_id", carrierId)
-                            .setInt("o_w_id", warehouseId)
-                            .setInt("o_d_id", districtNo)
-                            .setInt("o_id", orderId)
-                            .setInt("null_delivery_id", Constants.NULL_DELIVERY_ID)
-                            .build())
-                    .wasApplied();
-            if (!isUpdateSuccessful) {
-                System.out.printf("Skip order (%d, %d, %d) as it was processed by another delivery transaction\n",
-                        warehouseId, districtNo, orderId);
-                continue;
+            int numRetries = 0;
+            boolean isApplied = false;
+
+            while (numRetries < Constants.MAX_RETRIES && !isApplied) {
+                ResultSet updateResult = updateOrder(warehouseId, districtNo, orderId, carrierId);
+                isApplied = updateResult.wasApplied();
+                if (!isApplied) {
+                    row = getLatestOldestYtdOrder(warehouseId, districtNo);
+                    orderId = row.getInt("O_ID");
+                    customerId = row.getInt("O_C_ID");
+                }
+                numRetries++;
             }
 
-            session.execute(
-                    updateOrderByCustomerQuery
-                            .boundStatementBuilder()
-                            .setInt("o_carrier_id", carrierId)
-                            .setInt("c_w_id", warehouseId)
-                            .setInt("c_d_id", districtNo)
-                            .setInt("c_id", customerId)
-                            .setInt("o_id", orderId)
-                            .build()
-            );
+            if (!isApplied) {
+                System.out.printf("Skip order (%d, %d, %d) as it was processed by another delivery transaction\n",
+                        warehouseId, districtNo, orderId);
+                return;
+            }
 
-            Double olAmount = 0.0;
+            updateOrderByCustomer(warehouseId, districtNo, orderId, customerId, carrierId);
+
+
+            BigDecimal olAmount = new BigDecimal(0.0);
             List<Integer> ol_numbers = new ArrayList<>();
             List<Row> order_lines = session.execute(
                     getOrderLinesQuery
@@ -132,52 +126,100 @@ public class DeliveryTransaction extends BaseTransaction{
             ).all();
 
             for (Row ol : order_lines) {
-                olAmount = olAmount + ol.getBigDecimal("OL_AMOUNT").doubleValue();
+                olAmount = olAmount.add(ol.getBigDecimal("OL_AMOUNT"));
                 ol_numbers.add(ol.getInt("OL_NUMBER"));
             }
 
             Instant d = (new Date()).toInstant();
-            for (int ol_number : ol_numbers) {
+            int finalOrderId = orderId;
+            ol_numbers.parallelStream().forEach(ol_number -> {
                 session.execute(
                         updateOrderLinesQuery
                                 .boundStatementBuilder()
                                 .setInstant("ol_delivery_d", d)
                                 .setInt("ol_w_id", warehouseId)
                                 .setInt("ol_d_id", districtNo)
-                                .setInt("ol_o_id", orderId)
+                                .setInt("ol_o_id", finalOrderId)
                                 .setInt("ol_number", ol_number)
                                 .build()
                 );
-            }
+            });
 
-            boolean updateWasSuccessful = false;
-            while (!updateWasSuccessful) {
-                Row cust = session.execute(
-                        getCustomerDetailsQuery
-                                .boundStatementBuilder()
-                                .setInt("c_w_id", warehouseId)
-                                .setInt("c_d_id", districtNo)
-                                .setInt("c_id", customerId)
-                                .build()
-                ).one();
+            Row cust = session.execute(
+                    getCustomerDetailsQuery
+                            .boundStatementBuilder()
+                            .setInt("c_w_id", warehouseId)
+                            .setInt("c_d_id", districtNo)
+                            .setInt("c_id", customerId)
+                            .build()
+            ).one();
 
-                Double newAmount = cust.getBigDecimal("C_BALANCE").doubleValue() + olAmount;
+            numRetries = 0;
+            isApplied = false;
+
+
+            while (numRetries < Constants.MAX_RETRIES && !isApplied) {
+                BigDecimal customerBalance = cust.getBigDecimal("C_BALANCE");
                 int newDelCnt = cust.getInt("C_DELIVERY_CNT") + 1;
-
-                updateWasSuccessful = session.execute(
-                        updateCustomerDetailsQuery
-                                .boundStatementBuilder()
-                                .setTimeout(Duration.ofSeconds(40))
-                                .setBigDecimal("c_balance", BigDecimal.valueOf(newAmount))
-                                .setInt("c_delivery_cnt", newDelCnt)
-                                .setInt("c_w_id", warehouseId)
-                                .setInt("c_d_id", districtNo)
-                                .setInt("c_id", customerId)
-                                .setBigDecimal("original_c_balance", cust.getBigDecimal("C_BALANCE"))
-                                .build()
-                ).wasApplied();
+                ResultSet updateRes = updateCustomerDetails(warehouseId, districtNo, customerId, newDelCnt, customerBalance, olAmount);
+                isApplied = updateRes.wasApplied();
+                if (!isApplied) {
+                    cust = updateRes.one();
+                }
+                numRetries++;
             }
-        }
+        });
+    }
+
+    private ResultSet updateCustomerDetails(int warehouseId, int districtNo, int customerId, int newDelCnt,
+                                            BigDecimal customerBalance, BigDecimal olAmount) {
+        BigDecimal newAmount = customerBalance.add(olAmount);
+        return session.execute(
+                updateCustomerDetailsQuery
+                        .boundStatementBuilder()
+                        .setTimeout(Duration.ofSeconds(40))
+                        .setBigDecimal("c_balance", newAmount)
+                        .setInt("c_delivery_cnt", newDelCnt)
+                        .setInt("c_w_id", warehouseId)
+                        .setInt("c_d_id", districtNo)
+                        .setInt("c_id", customerId)
+                        .setBigDecimal("original_c_balance", customerBalance)
+                        .build()
+        );
+    }
+
+    private Row getLatestOldestYtdOrder(int warehouseId, int districtNo) {
+        return session.execute(
+                getOldestYtdOrderQuery
+                        .boundStatementBuilder()
+                        .setInt("o_w_id", warehouseId)
+                        .setInt("o_d_id", districtNo)
+                        .build()
+        ).one();
+    }
+
+    private ResultSet updateOrder(int warehouseId, int districtNo, int orderId, int carrierId) {
+        return session.execute(updateOrderQuery
+                .boundStatementBuilder()
+                .setInt("o_carrier_id", carrierId)
+                .setInt("o_w_id", warehouseId)
+                .setInt("o_d_id", districtNo)
+                .setInt("o_id", orderId)
+                .setInt("null_delivery_id", Constants.NULL_DELIVERY_ID)
+                .build());
+    }
+
+    private void updateOrderByCustomer(int warehouseId, int districtNo, int orderId, int customerId, int carrierId) {
+        session.execute(
+                updateOrderByCustomerQuery
+                        .boundStatementBuilder()
+                        .setInt("o_carrier_id", carrierId)
+                        .setInt("c_w_id", warehouseId)
+                        .setInt("c_d_id", districtNo)
+                        .setInt("c_id", customerId)
+                        .setInt("o_id", orderId)
+                        .build()
+        );
     }
 
     @Override

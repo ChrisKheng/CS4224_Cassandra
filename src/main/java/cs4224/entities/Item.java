@@ -19,6 +19,9 @@ import lombok.NoArgsConstructor;
 @CqlName("item")
 public class Item {
 
+    @CqlName("i_id")
+    private Integer id;
+
     @CqlName("i_name")
     private String name;
 
@@ -26,6 +29,7 @@ public class Item {
         final CQLMapper cqlMapper = new CQLMapper();
         final Item item = new Item();
         item.setName(cqlMapper.mapString(row, "i_name"));
+        item.setId(cqlMapper.mapInt(row, "i_id"));
         return item;
     }
 }

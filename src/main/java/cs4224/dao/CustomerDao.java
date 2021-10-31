@@ -6,6 +6,7 @@ import com.datastax.oss.driver.api.mapper.annotations.Query;
 import com.datastax.oss.driver.api.mapper.annotations.StatementAttributes;
 import com.datastax.oss.driver.api.mapper.annotations.Update;
 import cs4224.entities.Customer;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 
 import static com.datastax.oss.driver.api.mapper.entity.saving.NullSavingStrategy.DO_NOT_SET;
 
@@ -18,7 +19,7 @@ public interface CustomerDao {
     @Update(customWhereClause = "C_W_ID = :warehouseId AND C_D_ID = :districtId AND C_ID = :id IF c_ytd_payment = :c_ytd",
             nullSavingStrategy = DO_NOT_SET)
     @StatementAttributes(timeout = "PT10S")
-    Boolean updateWhereIdEquals(Customer customer, int warehouseId, int districtId, int id, float c_ytd);
+    ResultSet updateWhereIdEquals(Customer customer, int warehouseId, int districtId, int id, float c_ytd);
 
     @Query("SELECT C_FIRST, C_MIDDLE, C_LAST FROM ${qualifiedTableId} WHERE C_W_ID = :warehouseId AND C_D_ID = :districtId " +
             "AND C_ID = :id")

@@ -1,6 +1,7 @@
 package cs4224.transactions;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import cs4224.ParallelExecutor;
 import cs4224.dao.CustomerDao;
 import cs4224.dao.DistrictDao;
@@ -79,13 +80,14 @@ public class PaymentTransaction extends BaseTransaction {
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-                isApplied = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
+                final ResultSet updateRes = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
                         warehouse.getAmountPaidYTD());
+                isApplied = updateRes.wasApplied();
+                if (!isApplied) {
+                    warehouse = Warehouse.map(updateRes.one());
+                }
             } catch (Exception ignored) { }
-            if (!isApplied) {
-                warehouse = Warehouse.map(warehouseDao.getById(customerWarehouseId));
-                numRetries++;
-            }
+            numRetries++;
         }
         if (numRetries == MAX_RETRIES) {
             LOG.error("Error while updating warehouse");
@@ -98,18 +100,19 @@ public class PaymentTransaction extends BaseTransaction {
     private District updateDistrict(District district, final int customerWarehouseId, final int customerDistrictId,
                                     final double paymentAmount) {
         final District updatedDistrict = new District();
-        Boolean isApplied = false;
+        boolean isApplied = false;
         int numRetries = 0;
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-                isApplied = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId, customerDistrictId,
-                        district.getAmountPaidYTD());
+                final ResultSet updateRes = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId,
+                        customerDistrictId, district.getAmountPaidYTD());
+                isApplied = updateRes.wasApplied();
+                if (!isApplied) {
+                    district = District.map(updateRes.one());
+                }
             } catch (Exception ignored) { }
-            if (!isApplied) {
-                district = District.map(districtDao.getById(customerWarehouseId, customerDistrictId));
-                numRetries++;
-            }
+            numRetries++;
         }
         if (numRetries == MAX_RETRIES) {
             LOG.error("Error while updating district");
@@ -123,20 +126,20 @@ public class PaymentTransaction extends BaseTransaction {
                                     final int customerId, final double paymentAmount) {
         final Customer updatedCustomer = new Customer();
         int numRetries = 0;
-        Boolean isApplied = false;
+        boolean isApplied = false;
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedCustomer.setBalance(customer.getBalance().subtract(new BigDecimal(paymentAmount)))
                         .setPaymentYTD((float) (customer.getPaymentYTD() + paymentAmount))
                         .setNumPayments(customer.getNumPayments() + 1);
-                isApplied = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
+                final ResultSet updateRes = customerDao.updateWhereIdEquals(updatedCustomer, customerWarehouseId, customerDistrictId,
                         customerId, customer.getPaymentYTD());
-            } catch (Exception ignored) {
-            }
-            if (!isApplied) {
-                customer = Customer.map(customerDao.getById(customerWarehouseId, customerDistrictId, customerId));
-                numRetries++;
-            }
+                isApplied = updateRes.wasApplied();
+                if (!isApplied) {
+                    customer = Customer.map(updateRes.one());
+                }
+            } catch (Exception ignored) { }
+            numRetries++;
         }
         if (numRetries == MAX_RETRIES) {
             LOG.error("Error while updating customer");
@@ -155,6 +158,6 @@ public class PaymentTransaction extends BaseTransaction {
         System.out.println(customer.toOtherInfo());
         System.out.println(warehouse.toAddress());
         System.out.println(district.toAddress());
-        System.out.printf(" Payment Amount: %f", paymentAmount);
+        System.out.printf(" Payment Amount: %f\n", paymentAmount);
     }
 }

@@ -60,15 +60,13 @@ public class PopularItemTransaction extends BaseTransaction {
         final Map<Integer, Long> itemNumOrders = new ConcurrentHashMap<>(); // Item -> Num of Orders
         final Map<Integer, String> itemName = new ConcurrentHashMap<>(); // Item -> Item Name
 
-        orderItems.forEach((order, oItems) -> {
-            oItems.forEach(item -> itemNumOrders.put(item, itemNumOrders.getOrDefault(item, 0L)+1));
-        });
+        orderItems.forEach((order, oItems) ->
+                oItems.forEach(item -> itemNumOrders.put(item, itemNumOrders.getOrDefault(item, 0L)+1)));
 
         orderItems.values().forEach(items::addAll);
 
-        items.parallelStream().forEach(item -> {
-            itemName.put(item, getItemName(item));
-        });
+        List<Item> itemsList = getItems(new ArrayList<>(items));
+        itemsList.forEach(item -> itemName.put(item.getId(), item.getName()));
 
         printOutput(warehouseId, districtId, L, orderQuantity, orderItems, customerMap, itemNumOrders, itemName);
     }
@@ -93,8 +91,9 @@ public class PopularItemTransaction extends BaseTransaction {
                 .stream().map(OrderLine::map);
     }
 
-    private String getItemName(final int item) {
-        return Item.map(itemDao.getNameById(item)).getName();
+    private List<Item> getItems(final List<Integer> itemNums) {
+        return itemDao.getNameById(itemNums).all().stream().map(Item::map)
+                .collect(Collectors.toList());
     }
 
     private void printOutput(final int warehouseId, final int districtId, final int L,
