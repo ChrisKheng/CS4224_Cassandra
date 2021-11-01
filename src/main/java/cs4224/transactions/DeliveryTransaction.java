@@ -99,6 +99,12 @@ public class DeliveryTransaction extends BaseTransaction {
                 isApplied = updateResult.wasApplied();
                 if (!isApplied) {
                     row = getLatestOldestYtdOrder(warehouseId, districtNo);
+                    if (row == null) {
+                        System.out.printf("Skip district (%d, %d) as there is no undelivered order\n",
+                                warehouseId, districtNo);
+                        return;
+                    }
+
                     orderId = row.getInt("O_ID");
                     customerId = row.getInt("O_C_ID");
                 }
