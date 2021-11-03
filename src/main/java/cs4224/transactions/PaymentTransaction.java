@@ -80,8 +80,8 @@ public class PaymentTransaction extends BaseTransaction {
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedWarehouse.setAmountPaidYTD(warehouse.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-                final ResultSet updateRes = warehouseDao.updateWhereIdEquals(updatedWarehouse, customerWarehouseId,
-                        warehouse.getAmountPaidYTD());
+                final ResultSet updateRes = warehouseDao.updateWhereIdEquals(customerWarehouseId,
+                        updatedWarehouse.getAmountPaidYTD(), warehouse.getAmountPaidYTD());
                 isApplied = updateRes.wasApplied();
                 if (!isApplied) {
                     warehouse = Warehouse.map(updateRes.one());
@@ -105,8 +105,8 @@ public class PaymentTransaction extends BaseTransaction {
         while (numRetries < MAX_RETRIES && !isApplied) {
             try {
                 updatedDistrict.setAmountPaidYTD(district.getAmountPaidYTD().add(new BigDecimal(paymentAmount)));
-                final ResultSet updateRes = districtDao.updateWhereIdEquals(updatedDistrict, customerWarehouseId,
-                        customerDistrictId, district.getAmountPaidYTD());
+                final ResultSet updateRes = districtDao.updateWhereIdEquals(customerWarehouseId, customerDistrictId,
+                        updatedDistrict.getAmountPaidYTD(), district.getAmountPaidYTD());
                 isApplied = updateRes.wasApplied();
                 if (!isApplied) {
                     district = District.map(updateRes.one());
