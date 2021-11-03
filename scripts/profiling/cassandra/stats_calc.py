@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
                 avg += throughput/nc
                 min_throughput = min([min_throughput, throughput])
-                max_throughput = min([max_throughput, throughput])
+                max_throughput = max([max_throughput, throughput])
 
                 with open(f"{opath}/{i}.txt", 'w') as cf:
                     cf.write(clients[i].to_client_line())
