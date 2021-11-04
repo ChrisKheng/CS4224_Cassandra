@@ -51,9 +51,12 @@ if __name__ == "__main__":
             n = i.stem
 
             lines = [_.strip() for _ in f]
-            if not lines[0]:
-                lines.pop(0)
-
+            try:
+                while (not lines[0]) or (lines[0][0] != "="):
+                    lines.pop(0)
+            except:
+                pass
+            
             try:
                 a = re.findall("\d+", lines[2])[0]
                 b = re.findall("\d+", lines[3])[0]
