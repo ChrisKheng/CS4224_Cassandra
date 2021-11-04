@@ -6,13 +6,14 @@ import cs4224.utils.Statistics;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class Driver {
     public static long numQueries = 0;
-    public static long skippedTransactions = 0;
 
     private final NewOrderTransaction newOrderTransaction;
     private final PaymentTransaction paymentTransaction;
@@ -45,6 +46,8 @@ public class Driver {
         BaseTransaction transaction;
 
         Statistics calculator = Statistics.getStatisticsCalculator();
+
+        List<Long> failedTransactions = new LinkedList<>();
 
         long start, end, lStart, lEnd, lapse, totalLapse;
 
@@ -105,13 +108,18 @@ public class Driver {
             } catch (Exception ex) {
                 System.out.println(ex);
                 System.out.println("Transaction Skipped!");
-                skippedTransactions++;
+                failedTransactions.add(numQueries);
             }
            System.out.println("======================================================================");
         }
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
-        System.out.printf("Total Skipped Transactions: %d\n", skippedTransactions);
+
+        System.err.printf("Total Skipped Transactions: %d\n", failedTransactions.size());
+        String failedTransactionsString =
+                failedTransactions.stream().map(Object::toString).collect(Collectors.joining(","));
+        System.err.printf("Skipped transactions: %s\n", failedTransactionsString);
+
         calculator.computeTimeStatistics(totalLapse);
         scanner.close();
     }
