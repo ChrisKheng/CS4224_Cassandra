@@ -21,6 +21,6 @@ public interface OrderLineDao {
 
     @Query("SELECT sum(OL_AMOUNT) as OL_AMOUNT, sum(OL_QUANTITY) as OL_QUANTITY FROM ${qualifiedTableId} " +
             "where OL_W_ID = :warehouseId ALLOW FILTERING")
-    @StatementAttributes(timeout = "PT20S")
+    @StatementAttributes(timeout = "PT60S")
     Row getState(int warehouseId);
 }

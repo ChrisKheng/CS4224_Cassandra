@@ -65,7 +65,7 @@ public class PaymentTransaction extends BaseTransaction {
     private List<Object> updateEntities(final List<Object> entities, final int customerWarehouseId,
                                         final int customerDistrictId, final int customerId, final double paymentAmount) {
         final ParallelExecutor parallelExecutor = new ParallelExecutor(executorService)
-                .addTask(() -> updateWarehouse((Warehouse) entities.get(0), customerWarehouseId, customerDistrictId))
+                .addTask(() -> updateWarehouse((Warehouse) entities.get(0), customerWarehouseId, paymentAmount))
                 .addTask(() -> updateDistrict((District) entities.get(1), customerWarehouseId, customerDistrictId,
                         paymentAmount))
                 .addTask(() -> updateCustomer((Customer) entities.get(2), customerWarehouseId, customerDistrictId,

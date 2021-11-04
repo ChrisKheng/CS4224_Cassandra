@@ -11,4 +11,5 @@ public final class Constants {
     public static int CASSANDRA_PORT = 9042;
     public static int MAX_RETRIES = 3;
     public final static int NULL_DELIVERY_ID = -1;
+    public final static int NUM_STOCK_DISTRICT = 10;
 }

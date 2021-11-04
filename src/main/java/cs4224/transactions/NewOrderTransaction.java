@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import cs4224.utils.Constants;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -19,7 +20,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class NewOrderTransaction extends BaseTransaction {
-    private static int nullCarrierId = -1;
     private int customerId;
     private int warehouseId;
     private int districtId;
@@ -28,6 +28,7 @@ public class NewOrderTransaction extends BaseTransaction {
     PreparedStatement incrementDNextOidQuery;
     PreparedStatement createOrderQuery;
     PreparedStatement getStockInfoQuery;
+    List<PreparedStatement> getStockDistrictInfoQueriesList;
     PreparedStatement updateStockQuery;
     PreparedStatement getItemInfoQuery;
     PreparedStatement createOrderLineQuery;
@@ -117,6 +118,18 @@ public class NewOrderTransaction extends BaseTransaction {
                         "FROM STOCK " +
                         "WHERE S_W_ID = :s_w_id AND S_I_ID = :s_i_id"
         );
+
+        getStockDistrictInfoQueriesList = new ArrayList<>();
+        IntStream.rangeClosed(1, Constants.NUM_STOCK_DISTRICT).forEach(i -> {
+            String paddedSDist = String.format("S_DIST_%02d", i);
+            getStockDistrictInfoQueriesList.add(session.prepare(
+                    String.format(
+                            "SELECT %s " +
+                                    "FROM STOCK " +
+                                    "WHERE S_W_ID = :s_w_id AND S_I_ID = :s_i_id"
+                    , paddedSDist)
+            ));
+        });
 
         updateStockQuery = session.prepare(
                 "UPDATE STOCK " +
@@ -276,7 +289,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("o_w_id", warehouseId)
                 .setInt("o_c_id", customerId)
                 .setInstant("o_entry_d", now)
-                .setInt("o_carrier_id", nullCarrierId)
+                .setInt("o_carrier_id", Constants.NULL_DELIVERY_ID)
                 .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
                 .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0))
                 .build());
@@ -293,7 +306,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("c_id", customerId)
                 .setInt("o_id", oid)
                 .setInstant("o_entry_d", now)
-                .setInt("o_carrier_id", nullCarrierId)
+                .setInt("o_carrier_id", Constants.NULL_DELIVERY_ID)
                 .build());
     }
 
@@ -370,6 +383,13 @@ public class NewOrderTransaction extends BaseTransaction {
                                 .setInt("i_id", newOrderLine.itemId)
                                 .build())
                         .one();
+                Row stockDistrictInfo = session.execute(getStockDistrictInfoQueriesList
+                                .get(newOrderLine.supplierWarehouseId - 1)
+                                .boundStatementBuilder()
+                                .setInt("s_w_id", newOrderLine.supplierWarehouseId)
+                                .setInt("s_i_id", newOrderLine.itemId)
+                                .build())
+                        .one();
 
                 BigDecimal itemAmount = new BigDecimal(newOrderLine.quantity).multiply(itemInfo.getBigDecimal("I_PRICE"));
 
@@ -407,7 +427,7 @@ public class NewOrderTransaction extends BaseTransaction {
                         .setBigDecimal("ol_quantity", new BigDecimal(newOrderLine.quantity))
                         .setBigDecimal("ol_amount", itemAmount)
                         .setInstant("ol_delivery_d", null)
-                        .setString("ol_dist_info", String.format("S_DIST_%d", districtId))
+                        .setString("ol_dist_info", stockDistrictInfo.getString(0))
                         .build()
                 );
 
@@ -502,5 +522,4 @@ public class NewOrderTransaction extends BaseTransaction {
                             info.orderQuantity);
                 });
     }
-
 }
