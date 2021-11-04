@@ -98,16 +98,16 @@ public class Driver {
             System.out.printf("Transaction ID: %d | Type: %s\n", numQueries, transaction.getType());
             try {
                 transaction.execute(lines, parameters);
+                lEnd = System.nanoTime();
+                lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
+                calculator.ingestTime(transaction.getType(), lapse);
+                System.out.printf("Time taken: %d\n", lapse);
             } catch (Exception ex) {
                 System.out.println(ex);
                 System.out.println("Transaction Skipped!");
                 skippedTransactions++;
             }
-            lEnd = System.nanoTime();
-            lapse = TimeUnit.MILLISECONDS.convert(lEnd - lStart, TimeUnit.NANOSECONDS);
-            calculator.ingestTime(transaction.getType(), lapse);
-            System.out.printf("Time taken: %d\n", lapse);
-            System.out.println("======================================================================");
+           System.out.println("======================================================================");
         }
         end = System.nanoTime();
         totalLapse = TimeUnit.SECONDS.convert(end - start, TimeUnit.NANOSECONDS);
