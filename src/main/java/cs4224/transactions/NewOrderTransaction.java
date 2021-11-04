@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import cs4224.utils.Constants;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -19,7 +20,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class NewOrderTransaction extends BaseTransaction {
-    private static int nullCarrierId = -1;
     private int customerId;
     private int warehouseId;
     private int districtId;
@@ -120,7 +120,7 @@ public class NewOrderTransaction extends BaseTransaction {
         );
 
         getStockDistrictInfoQueriesList = new ArrayList<>();
-        IntStream.rangeClosed(1, 10).forEach(i -> {
+        IntStream.rangeClosed(1, Constants.NUM_STOCK_DISTRICT).forEach(i -> {
             String paddedSDist = String.format("S_DIST_%02d", i);
             getStockDistrictInfoQueriesList.add(session.prepare(
                     String.format(
@@ -289,7 +289,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("o_w_id", warehouseId)
                 .setInt("o_c_id", customerId)
                 .setInstant("o_entry_d", now)
-                .setInt("o_carrier_id", nullCarrierId)
+                .setInt("o_carrier_id", Constants.NULL_DELIVERY_ID)
                 .setBigDecimal("o_ol_cnt", new BigDecimal(noOfItems))
                 .setBigDecimal("o_all_local", isAllItemsLocal ? new BigDecimal(1) : new BigDecimal(0))
                 .build());
@@ -306,7 +306,7 @@ public class NewOrderTransaction extends BaseTransaction {
                 .setInt("c_id", customerId)
                 .setInt("o_id", oid)
                 .setInstant("o_entry_d", now)
-                .setInt("o_carrier_id", nullCarrierId)
+                .setInt("o_carrier_id", Constants.NULL_DELIVERY_ID)
                 .build());
     }
 
