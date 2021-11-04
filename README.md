@@ -19,7 +19,11 @@ request_timeout_in_ms: 60000
 
 4) Upload the files under `scripts/load_data` directory of the project root directory to the cluster node.
 
-5) In the directory where `scripts/load_data` directory was uploaded, run `./load_data.sh`. The script:
+5) Create a file called `create_table.cql` on the cluster node. Copy the content of `create_table_workload_A.cql` or
+`create_table_workload_B.cql` into `create_table.cql` accordingly based on the type of workload to run. For example, if
+you want to run workload A, copy `create_table_workload_A.cql` into `create_table.cql`.
+
+6) In the directory where `scripts/load_data` directory was uploaded, run `./load_data.sh`. The script:
 * downloads `project_files_4.zip`.
 * creates additional files from the data files in `project_files_4` for some tables in the keyspace.
 * creates the `wholesale` keyspace.
