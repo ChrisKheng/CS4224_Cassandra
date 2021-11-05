@@ -137,6 +137,16 @@ alias checkstatus='for server in xcnc4{1..4}; do ssh $server "tmux ls"; done'
     node.
 * Replace the list of nodes in `gather_outputs.sh` before running the script.
 
+## Consolidating statistics
+* A python script called `stats_cal.py` is provided in `scripts/profiling` under the project root directory.
+* Run the script to consolidate `.err` files from all the servers.
+```
+Usage: python3 stats_cal.py --i [input_dir] --o [output_dir]
+input_dir: a directory containing .err files generated from clients. Each .err file should be in the format of [i].err,
+where i is from 0 to 39 inclusive.
+output_dir: a directory to contain the consolidated stats files.
+```
+* The output files include `clients.csv`, `throughput.csv`, and .csv files of statistics per transaction type of each client.
 
 ## Additional Details
 1) The `cassandra_conf` directory of the project root directory contains `cassandra.yaml` files used for each of the
