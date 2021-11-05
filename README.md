@@ -114,7 +114,8 @@ The scripts assume that:
 10) Run `prep.sh` to send the `profiling_files` archive to the group of Cassandra cluster nodes.
 11) In `launch.sh`, substitute the `servers` variable with the list of hostnames of other nodes to run the clients on.
 12) Run `launch.sh` to launch 40 clients simultaneously on the 5 Cassandra cluster nodes.
-* The script launches 8 client instances at each node.
+* The script launches 8 client instances at each node, following the server requirement S(i mod 5). For example, clients
+0, 5, 10, 15, 20, 25, 30, 35 execute on `xnc40`, clients 1, 6, 11, 16, 21, 26, 31, 36 execute on `xcnc41` and so on.
 * The script runs `run.sh` in `profiling_files` subdirectory of the current directory on every node. 
 ```
 Usage: launch <keyspace name> <workload_type>
